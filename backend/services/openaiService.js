@@ -138,7 +138,7 @@ class OpenAIService {
         infographic: `Create a clean, minimalist infographic-style illustration based on this script content: "${chunkContent}". 
 Style requirements:
 - Modern infographic design
-- Simple, clean lines and shapes
+- Simple, clean shapes, no lines, Must be filled
 - Flat design with minimal details
 - Professional and informative look
 - Use ONLY one single color: ${color}
