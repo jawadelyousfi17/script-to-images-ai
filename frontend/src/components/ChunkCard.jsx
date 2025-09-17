@@ -23,6 +23,7 @@ const ChunkCard = ({ chunk, scriptId, onChunkUpdated }) => {
   const [error, setError] = useState('');
   const [imageColor, setImageColor] = useState('white');
   const [imageQuality, setImageQuality] = useState('high');
+  const [imageStyle, setImageStyle] = useState('infographic');
 
   const handleRegenerate = async () => {
     setRegenerating(true);
@@ -48,7 +49,7 @@ const ChunkCard = ({ chunk, scriptId, onChunkUpdated }) => {
     setError('');
 
     try {
-      const result = await scriptAPI.generateImage(scriptId, chunk.id, imageColor, imageQuality);
+      const result = await scriptAPI.generateImage(scriptId, chunk.id, imageColor, imageQuality, imageStyle);
       console.log('Image generated:', result);
       
       if (onChunkUpdated) {
@@ -115,7 +116,7 @@ const ChunkCard = ({ chunk, scriptId, onChunkUpdated }) => {
         </Box>
       </Box>
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr auto' }, gap: 2, alignItems: 'end', mb: 3 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr 1fr auto' }, gap: 2, alignItems: 'end', mb: 3 }}>
         <FormControl>
           <FormLabel sx={{ fontWeight: 'normal' }}>Image Color</FormLabel>
           <Input
@@ -137,6 +138,20 @@ const ChunkCard = ({ chunk, scriptId, onChunkUpdated }) => {
             <Option value="medium">Medium</Option>
             <Option value="high">High</Option>
             <Option value="auto">Auto</Option>
+          </Select>
+        </FormControl>
+        
+        <FormControl>
+          <FormLabel sx={{ fontWeight: 'normal' }}>Style</FormLabel>
+          <Select
+            value={imageStyle}
+            onChange={(event, newValue) => setImageStyle(newValue)}
+            size="sm"
+          >
+            <Option value="infographic">Infographic</Option>
+            <Option value="drawing">Drawing</Option>
+            <Option value="illustration">Illustration</Option>
+            <Option value="abstract">Abstract</Option>
           </Select>
         </FormControl>
         

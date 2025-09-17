@@ -19,6 +19,7 @@ import { scriptAPI } from '../services/api';
 const BatchImageGenerator = ({ script, onBatchComplete }) => {
   const [batchColor, setBatchColor] = useState('white');
   const [batchQuality, setBatchQuality] = useState('high');
+  const [batchStyle, setBatchStyle] = useState('infographic');
   const [isGenerating, setIsGenerating] = useState(false);
   const [batchStatus, setBatchStatus] = useState(null);
   const [error, setError] = useState('');
@@ -86,7 +87,7 @@ const BatchImageGenerator = ({ script, onBatchComplete }) => {
     setBatchStatus(null);
 
     try {
-      const result = await scriptAPI.batchGenerateImages(script._id, batchColor, batchQuality);
+      const result = await scriptAPI.batchGenerateImages(script._id, batchColor, batchQuality, batchStyle);
       console.log('Batch generation started:', result);
       
       if (result.chunksToProcess === 0) {
@@ -145,7 +146,7 @@ const BatchImageGenerator = ({ script, onBatchComplete }) => {
         </Alert>
       )}
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr 1fr 2fr' }, gap: 3, alignItems: 'end', mb: 3 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr 1fr 1fr 1fr' }, gap: 3, alignItems: 'end', mb: 3 }}>
         <FormControl>
           <FormLabel sx={{ fontWeight: 'normal' }}>Color</FormLabel>
           <Input
@@ -169,6 +170,21 @@ const BatchImageGenerator = ({ script, onBatchComplete }) => {
             <Option value="medium">Medium</Option>
             <Option value="high">High</Option>
             <Option value="auto">Auto</Option>
+          </Select>
+        </FormControl>
+
+        <FormControl>
+          <FormLabel sx={{ fontWeight: 'normal' }}>Style</FormLabel>
+          <Select
+            value={batchStyle}
+            onChange={(event, newValue) => setBatchStyle(newValue)}
+            disabled={isGenerating}
+            size="sm"
+          >
+            <Option value="infographic">Infographic</Option>
+            <Option value="drawing">Drawing</Option>
+            <Option value="illustration">Illustration</Option>
+            <Option value="abstract">Abstract</Option>
           </Select>
         </FormControl>
 

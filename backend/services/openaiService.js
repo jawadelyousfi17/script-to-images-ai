@@ -1,4 +1,5 @@
 const OpenAI = require('openai');
+const logger = require('../utils/logger');
 
 class OpenAIService {
   constructor() {
@@ -8,6 +9,8 @@ class OpenAIService {
   }
 
   async chunkScript(script) {
+    const startTime = Date.now();
+    
     try {
       const prompt = `
         Please divide the following script into meaningful chunks of exactly 5 seconds each. 
@@ -26,6 +29,12 @@ class OpenAIService {
         Each chunk should be exactly 5 seconds long.
       `;
 
+      logger.info('OPENAI', 'Starting script chunking request', {
+        model: 'gpt-4',
+        scriptLength: script.length,
+        operation: 'chunk_script'
+      });
+
       const response = await this.openai.chat.completions.create({
         model: "gpt-4",
         messages: [
@@ -40,6 +49,9 @@ class OpenAIService {
         ],
         temperature: 0.3,
       });
+
+      const duration = Date.now() - startTime;
+      logger.logOpenAI('chunk_script', 'gpt-4', prompt, response, duration);
 
       const content = response.choices[0].message.content;
       
@@ -63,9 +75,11 @@ class OpenAIService {
         id: `chunk_${Date.now()}_${index}`
       }));
 
+      logger.info('OPENAI', `Script chunked successfully into ${chunks.length} chunks`);
       return chunks;
     } catch (error) {
-      console.error('Error chunking script:', error);
+      const duration = Date.now() - startTime;
+      logger.logOpenAI('chunk_script', 'gpt-4', null, null, duration, error);
       throw new Error('Failed to chunk script: ' + error.message);
     }
   }
@@ -105,24 +119,74 @@ class OpenAIService {
     }
   }
 
-  async generateImage(chunkContent, color = 'white', quality = 'high') {
+  async generateImage(chunkContent, color = 'white', quality = 'high', style = 'infographic') {
+    const startTime = Date.now();
+    const chunkId = `chunk_${Date.now()}`;
+    
     try {
-      console.log(`🎨 Generating image with quality: "${quality}", color: "${color}"`);
-      console.log(`📝 Chunk content preview: "${chunkContent.substring(0, 50)}..."`);
+      logger.info('IMAGE_GEN', `Starting image generation`, {
+        chunkId,
+        color,
+        quality,
+        style,
+        contentLength: chunkContent.length,
+        contentPreview: chunkContent.substring(0, 50) + '...'
+      });
       
-      const prompt = `Generate an image: Create a minimalist flat vector illustration based on this script content: "${chunkContent}". 
-
+      // Define style-specific prompts
+      const stylePrompts = {
+        infographic: `Create a clean, minimalist infographic-style illustration based on this script content: "${chunkContent}". 
 Style requirements:
-- Minimalist flat vector illustration style
-- Simple design with 1 solid color: ${color}
+- Modern infographic design
+- Simple, clean lines and shapes
+- Flat design with minimal details
+- Professional and informative look
+- Use ONLY one single color: ${color}
+- No gradients, no multiple colors, just one solid color
 - No background (transparent)
-- Modern infographic style
-- No text or words in the image
-- Focus on the main visual concept or action described in the script
+- No text or words in the image`,
 
-Analyze the script content and create a visual representation that captures the essence of what's being described or discussed.`;
+        drawing: `Create a hand-drawn style illustration based on this script content: "${chunkContent}". 
+Style requirements:
+- Hand-drawn, sketch-like appearance
+- Organic lines and natural imperfections
+- Artistic and expressive style
+- Pencil or pen drawing aesthetic
+- Primary color: ${color}
+- No background (transparent)
+- No text or words in the image`,
 
-      console.log(`🚀 Calling OpenAI API with quality: "${quality}"`);
+        illustration: `Create a detailed artistic illustration based on this script content: "${chunkContent}". 
+Style requirements:
+- Rich, detailed illustration style
+- Artistic and creative interpretation
+- More complex visual elements
+- Professional illustration quality
+- Primary color: ${color}
+- No background (transparent)
+- No text or words in the image`,
+
+        abstract: `Create an abstract artistic representation based on this script content: "${chunkContent}". 
+Style requirements:
+- Abstract, conceptual design
+- Geometric or organic abstract forms
+- Creative interpretation of the content
+- Modern abstract art style
+- Primary color: ${color}
+- No background (transparent)
+- No text or words in the image`
+      };
+
+      const prompt = `Generate an image: ${stylePrompts[style] || stylePrompts.infographic}
+
+Focus on the main visual concept or action described in the script and create a visual representation that captures the essence of what's being described or discussed.`;
+
+      logger.info('OPENAI', 'Calling image generation API', {
+        model: 'gpt-image-1',
+        quality,
+        size: '1024x1024',
+        operation: 'generate_image'
+      });
       
       const response = await this.openai.images.generate({
         model: "gpt-image-1",
@@ -131,6 +195,9 @@ Analyze the script content and create a visual representation that captures the 
         size: "1024x1024",
         output_format: "png"
       });
+
+      const apiDuration = Date.now() - startTime;
+      logger.logOpenAI('generate_image', 'gpt-image-1', prompt, response, apiDuration);
 
       // GPT-Image-1 returns base64 data, save as PNG file on server
       const base64Data = response.data[0].b64_json;
@@ -180,12 +247,15 @@ Analyze the script content and create a visual representation that captures the 
       const imageBuffer = Buffer.from(base64Data, 'base64');
       fs.writeFileSync(filepath, imageBuffer);
       
-      console.log('Image saved to:', filepath);
+      const totalDuration = Date.now() - startTime;
+      const imageUrl = `/api/images/${filename}`;
       
-      // Return the URL path for frontend access
-      return `/api/images/${filename}`;
+      logger.logImageGeneration(chunkId, color, quality, style, imageUrl, totalDuration);
+      
+      return imageUrl;
     } catch (error) {
-      console.error('Error generating image:', error);
+      const totalDuration = Date.now() - startTime;
+      logger.logImageGeneration(chunkId, color, quality, style, null, totalDuration, error);
       throw new Error('Failed to generate image: ' + error.message);
     }
   }

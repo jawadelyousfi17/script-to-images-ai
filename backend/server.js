@@ -6,6 +6,8 @@ require('dotenv').config();
 const scriptRoutes = require('./routes/scripts');
 const path = require('path');
 const JobManager = require('./services/jobManager');
+const logger = require('./utils/logger');
+const requestLogger = require('./middleware/requestLogger');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -14,6 +16,9 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Request logging middleware
+app.use(requestLogger);
 
 // Serve static images
 app.use('/api/images', express.static(path.join(__dirname, 'uploads')));
@@ -74,29 +79,43 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/script-ch
   useUnifiedTopology: true,
 })
 .then(async () => {
-  console.log('✅ Connected to MongoDB locally');
-  console.log(`📍 Database: ${mongoose.connection.name}`);
+  logger.info('DATABASE', 'Connected to MongoDB successfully', {
+    database: mongoose.connection.name,
+    host: mongoose.connection.host,
+    port: mongoose.connection.port
+  });
   
   // Start job processor
   await jobManager.startProcessor();
+  logger.info('JOB_MANAGER', 'Job processor started successfully');
   
   // Start server
   app.listen(PORT, () => {
-    console.log(`🚀 Server is running on port ${PORT}`);
-    console.log(`🔍 Health check: http://localhost:${PORT}/api/health`);
-    console.log(`🎨 Job processor is running`);
+    logger.info('SERVER', `Server started successfully on port ${PORT}`, {
+      port: PORT,
+      environment: process.env.NODE_ENV || 'development',
+      healthCheck: `http://localhost:${PORT}/api/health`
+    });
   });
 })
 .catch((error) => {
-  console.error('❌ MongoDB connection error:', error.message);
-  console.error('💡 Make sure MongoDB is running: sudo systemctl start mongod');
+  logger.error('DATABASE', 'MongoDB connection failed', {
+    error: error.message,
+    stack: error.stack
+  });
   process.exit(1);
 });
 
 // Graceful shutdown
 process.on('SIGINT', () => {
-  console.log('\n🛑 Shutting down gracefully...');
+  logger.info('SERVER', 'Received SIGINT, shutting down gracefully');
+  
   jobManager.stopProcessor();
+  logger.info('JOB_MANAGER', 'Job processor stopped');
+  
   mongoose.connection.close();
+  logger.info('DATABASE', 'MongoDB connection closed');
+  
+  logger.info('SERVER', 'Server shutdown complete');
   process.exit(0);
 });

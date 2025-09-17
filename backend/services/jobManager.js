@@ -1,6 +1,7 @@
 const Job = require('../models/Job');
 const Script = require('../models/Script');
 const OpenAIService = require('./openaiService');
+const logger = require('../utils/logger');
 
 class JobManager {
   constructor() {
@@ -138,7 +139,8 @@ class JobManager {
         const imageUrl = await this.openaiService.generateImage(
           scriptChunk.content, 
           job.config.color, 
-          job.config.quality
+          job.config.quality,
+          job.config.style || 'infographic'
         );
 
         // Update script with image URL
@@ -172,7 +174,7 @@ class JobManager {
   }
 
   // Create a new batch image generation job
-  async createBatchImageJob(scriptId, color, quality) {
+  async createBatchImageJob(scriptId, color, quality, style = 'infographic') {
     const script = await Script.findById(scriptId);
     if (!script) {
       throw new Error('Script not found');
@@ -206,7 +208,7 @@ class JobManager {
         processedChunks: 0,
         failedChunks: 0
       },
-      config: { color, quality },
+      config: { color, quality, style },
       chunksToProcess: chunksWithoutImages.map(chunk => ({
         chunkId: chunk.id,
         status: 'pending'
@@ -214,7 +216,14 @@ class JobManager {
     });
 
     await job.save();
-    console.log(`📋 Created batch job ${job._id} for ${chunksWithoutImages.length} chunks`);
+    
+    logger.logBatchJob(job._id, 'created', {
+      scriptId,
+      totalChunks: chunksWithoutImages.length,
+      color,
+      quality,
+      style
+    });
     
     return job;
   }

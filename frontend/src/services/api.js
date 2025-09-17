@@ -57,19 +57,21 @@ export const scriptAPI = {
   },
 
   // Generate image for a chunk
-  generateImage: async (scriptId, chunkId, color = 'white', quality = 'high') => {
+  generateImage: async (scriptId, chunkId, color = 'white', quality = 'high', style = 'infographic') => {
     const response = await api.post(`/scripts/${scriptId}/chunks/${chunkId}/generate-image`, {
       color,
       quality,
+      style,
     });
     return response.data;
   },
 
   // Batch generate images for all chunks
-  batchGenerateImages: async (scriptId, color = 'white', quality = 'high') => {
+  batchGenerateImages: async (scriptId, color = 'white', quality = 'high', style = 'infographic') => {
     const response = await api.post(`/scripts/${scriptId}/batch-generate-images`, {
       color,
       quality,
+      style,
     });
     return response.data;
   },

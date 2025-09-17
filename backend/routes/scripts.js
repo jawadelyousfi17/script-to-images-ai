@@ -98,7 +98,7 @@ router.put('/:scriptId/chunks/:chunkId/regenerate', async (req, res) => {
 router.post('/:scriptId/chunks/:chunkId/generate-image', async (req, res) => {
   try {
     const { scriptId, chunkId } = req.params;
-    const { color = 'white', quality = 'high' } = req.body;
+    const { color = 'white', quality = 'high', style = 'infographic' } = req.body;
 
     const script = await Script.findById(scriptId);
     if (!script) {
@@ -113,7 +113,7 @@ router.post('/:scriptId/chunks/:chunkId/generate-image', async (req, res) => {
     const chunk = script.chunks[chunkIndex];
 
     // Generate image using OpenAI with full chunk content
-    const imageUrl = await openaiService.generateImage(chunk.content, color, quality);
+    const imageUrl = await openaiService.generateImage(chunk.content, color, quality, style);
 
     // Update the chunk with the image URL
     script.chunks[chunkIndex].imageUrl = imageUrl;
@@ -134,11 +134,11 @@ router.post('/:scriptId/chunks/:chunkId/generate-image', async (req, res) => {
 router.post('/:scriptId/batch-generate-images', async (req, res) => {
   try {
     const { scriptId } = req.params;
-    const { color = 'white', quality = 'high' } = req.body;
+    const { color = 'white', quality = 'high', style = 'infographic' } = req.body;
     const jobManager = req.app.locals.jobManager;
 
     // Create persistent job
-    const job = await jobManager.createBatchImageJob(scriptId, color, quality);
+    const job = await jobManager.createBatchImageJob(scriptId, color, quality, style);
 
     res.json({
       message: 'Batch image generation job created',

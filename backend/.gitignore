@@ -9,3 +9,12 @@ yarn-debug.log*
 yarn-error.log*
 .DS_Store
 *.log
+
+# Uploads folder - ignore generated images
+uploads/
+
+# Logs folder - ignore log files
+logs/
+
+# PM2 logs
+*.log
