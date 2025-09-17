@@ -93,6 +93,34 @@ export const scriptAPI = {
     const response = await api.get('/health');
     return response.data;
   },
+
+  // Logs API
+  logs: {
+    // Get available log files
+    getFiles: async () => {
+      const response = await api.get('/logs/files');
+      return response.data;
+    },
+
+    // Get log content
+    getContent: async (filename, lines = 100, offset = 0) => {
+      const response = await api.get(`/logs/content/${filename}`, {
+        params: { lines, offset }
+      });
+      return response.data;
+    },
+
+    // Clear log file
+    clearFile: async (filename) => {
+      const response = await api.delete(`/logs/content/${filename}`);
+      return response.data;
+    },
+
+    // Get log stream URL for Server-Sent Events
+    getStreamUrl: (filename) => {
+      return `${API_BASE_URL}/logs/stream/${filename}`;
+    }
+  },
 };
 
 export default api;

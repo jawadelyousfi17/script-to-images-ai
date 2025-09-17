@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box,
   Container,
   Typography,
+  Box,
   Alert,
   CircularProgress,
   Stack,
@@ -11,9 +11,11 @@ import {
   Option,
   FormControl,
   FormLabel,
+  Button,
 } from '@mui/joy';
 import ScriptForm from './components/ScriptForm';
 import ScriptViewer from './components/ScriptViewer';
+import LogsViewer from './components/LogsViewer';
 import { scriptAPI } from './services/api';
 
 function App() {
@@ -22,6 +24,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [apiStatus, setApiStatus] = useState('checking');
+  const [activeTab, setActiveTab] = useState('app');
 
   useEffect(() => {
     checkApiHealth();
@@ -85,7 +88,7 @@ function App() {
   return (
     <Container maxWidth="xl" sx={{ py: 6 }}>
       <Box sx={{ mb: 6 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Box>
             <Typography level="h1" sx={{ mb: 1, fontWeight: 'normal' }}>
               Script Chunker & Image Generator
@@ -103,6 +106,24 @@ function App() {
             {apiStatus === 'connected' ? 'Connected' : 'Disconnected'}
           </Alert>
         </Box>
+
+        {/* Tab Navigation */}
+        <Box sx={{ display: 'flex', gap: 1, mb: 4 }}>
+          <Button
+            variant={activeTab === 'app' ? 'solid' : 'outlined'}
+            onClick={() => setActiveTab('app')}
+            sx={{ fontWeight: 'normal' }}
+          >
+            📝 Script Generator
+          </Button>
+          <Button
+            variant={activeTab === 'logs' ? 'solid' : 'outlined'}
+            onClick={() => setActiveTab('logs')}
+            sx={{ fontWeight: 'normal' }}
+          >
+            📋 Server Logs
+          </Button>
+        </Box>
       </Box>
 
       {error && (
@@ -113,63 +134,61 @@ function App() {
 
       {apiStatus === 'connected' ? (
         <Box>
-          <ScriptForm onScriptCreated={handleScriptCreated} />
-          
-          {scripts.length > 0 && (
+          {activeTab === 'app' && (
             <>
-              <Divider sx={{ my: 4 }} />
-              <Box sx={{ mb: 4 }}>
-                <FormControl sx={{ maxWidth: 500 }}>
-                  <FormLabel sx={{ fontWeight: 'normal' }}>Select Existing Script</FormLabel>
-                  <Select
-                    value={currentScript?._id || ''}
-                    onChange={(event, newValue) => {
-                      const selectedScript = scripts.find(script => script._id === newValue);
-                      setCurrentScript(selectedScript);
-                    }}
-                    placeholder="Choose a script to view..."
-                  >
-                    {scripts.map((script) => (
-                      <Option key={script._id} value={script._id}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                          <Typography sx={{ fontWeight: 'normal' }}>{script.title}</Typography>
-                          <Typography level="body-xs" color="neutral">
-                            {new Date(script.createdAt).toLocaleDateString()}
-                          </Typography>
-                        </Box>
-                      </Option>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Box>
+              <ScriptForm onScriptCreated={handleScriptCreated} />
+              
+              {scripts.length > 0 && (
+                <>
+                  <Divider sx={{ my: 4 }} />
+                  <Box sx={{ mb: 4 }}>
+                    <FormControl sx={{ maxWidth: 500 }}>
+                      <FormLabel sx={{ fontWeight: 'normal' }}>Select Existing Script</FormLabel>
+                      <Select
+                        value={currentScript?._id || ''}
+                        onChange={(event, newValue) => {
+                          const selectedScript = scripts.find(script => script._id === newValue);
+                          setCurrentScript(selectedScript);
+                        }}
+                        placeholder="Choose a script to view..."
+                      >
+                        {scripts.map((script) => (
+                          <Option key={script._id} value={script._id}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                              <Typography sx={{ fontWeight: 'normal' }}>{script.title}</Typography>
+                              <Typography level="body-xs" color="neutral">
+                                {new Date(script.createdAt).toLocaleDateString()}
+                              </Typography>
+                            </Box>
+                          </Option>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Box>
+                </>
+              )}
+              
+              {currentScript && (
+                <>
+                  <Divider sx={{ my: 4 }} />
+                  <ScriptViewer script={currentScript} />
+                </>
+              )}
             </>
           )}
-          
-          {currentScript && (
-            <>
-              <Divider sx={{ my: 2 }} />
-              <ScriptViewer script={currentScript} />
-            </>
+
+          {activeTab === 'logs' && (
+            <LogsViewer />
           )}
         </Box>
       ) : (
         <Alert color="warning" sx={{ textAlign: 'center' }}>
-          <Typography level="title-md" sx={{ mb: 1 }}>
-            Backend Server Not Available
+          <Typography level="title-md">
+            Unable to connect to the server
           </Typography>
           <Typography level="body-md">
-            Please start the backend server by running:
+            Please make sure the backend server is running on port 5000
           </Typography>
-          <Box sx={{ 
-            mt: 2, 
-            p: 2, 
-            bgcolor: 'background.level1', 
-            borderRadius: 'sm',
-            fontFamily: 'monospace',
-            fontSize: '14px'
-          }}>
-            cd backend && npm install && npm run dev
-          </Box>
         </Alert>
       )}
     </Container>

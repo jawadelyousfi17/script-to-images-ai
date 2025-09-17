@@ -31,12 +31,20 @@ if [ ! -d "frontend/node_modules" ]; then
     cd frontend && npm install && cd ..
 fi
 
-# Check for .env file
+# Check for .env files
 if [ ! -f "backend/.env" ]; then
     echo "⚠️  Warning: backend/.env file not found!"
     echo "📝 Please create backend/.env with your OpenAI API key:"
     echo "   OPENAI_API_KEY=your_api_key_here"
     echo "   MONGODB_URI=mongodb://localhost:27017/script-chunker"
+    echo ""
+fi
+
+if [ ! -f "frontend/.env" ]; then
+    echo "⚠️  Warning: frontend/.env file not found!"
+    echo "📝 Creating frontend/.env from template..."
+    cp frontend/.env.example frontend/.env
+    echo "✅ Created frontend/.env with default API URL"
     echo ""
 fi
 

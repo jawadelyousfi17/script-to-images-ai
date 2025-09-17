@@ -4,6 +4,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 const scriptRoutes = require('./routes/scripts');
+const logsRoutes = require('./routes/logs');
 const path = require('path');
 const JobManager = require('./services/jobManager');
 const logger = require('./utils/logger');
@@ -43,6 +44,7 @@ app.get('/api/images/:filename/download', (req, res) => {
 
 // Routes
 app.use('/api/scripts', scriptRoutes);
+app.use('/api/logs', logsRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
