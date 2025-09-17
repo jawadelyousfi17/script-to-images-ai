@@ -24,6 +24,22 @@ app.use(requestLogger);
 // Serve static images
 app.use('/api/images', express.static(path.join(__dirname, 'uploads')));
 
+// Serve frontend static files in production
+if (process.env.NODE_ENV === 'production') {
+  // Serve static files from frontend build
+  app.use(express.static(path.join(__dirname, '../frontend/dist')));
+  
+  // Handle React Router - send all non-API requests to index.html
+  app.get('*', (req, res) => {
+    // Skip API routes
+    if (req.path.startsWith('/api/')) {
+      return res.status(404).json({ error: 'API endpoint not found' });
+    }
+    
+    res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+  });
+}
+
 // Image download route
 app.get('/api/images/:filename/download', (req, res) => {
   const filename = req.params.filename;
