@@ -29,7 +29,7 @@ module.exports = {
     {
       name: 'script-chunker-frontend',
       script: 'npm',
-      args: 'run dev',
+      args: 'run dev -- --host',
       cwd: './frontend',
       instances: 1,
       exec_mode: 'fork',
