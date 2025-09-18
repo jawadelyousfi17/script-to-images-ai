@@ -82,6 +82,12 @@ export const scriptAPI = {
     return response.data;
   },
 
+  // Generate YouTube metadata (title and description)
+  generateYouTubeMetadata: async (scriptId, options = {}) => {
+    const response = await api.post(`/scripts/${scriptId}/generate-youtube-metadata`, options);
+    return response.data;
+  },
+
   // Delete a script
   deleteScript: async (id) => {
     const response = await api.delete(`/scripts/${id}`);

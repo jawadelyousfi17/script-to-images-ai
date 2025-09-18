@@ -137,14 +137,14 @@ class OpenAIService {
       const stylePrompts = {
         infographic: `Create a clean, minimalist infographic-style illustration based on this script content: "${chunkContent}". 
 Style requirements:
-- Modern infographic design
-- Simple, clean shapes, no lines, Must be filled
-- Flat design with minimal details
-- Professional and informative look
-- Use ONLY one single color: ${color}
-- No gradients, no multiple colors, just one solid color
-- No background (transparent)
-- rounded face with no nose
+- Modern infographic design 
+- Simple, clean shapes, no lines, Must be filled 
+- Flat design with minimal details 
+- Professional and informative look 
+- Use ONLY one single color: ${color} 
+- No gradients, no multiple colors, just one solid color 
+- No background (transparent) 
+- rounded face with no nose, full bodies 
 - No text or words in the image`,
 
         drawing: `Create a hand-drawn style illustration based on this script content: "${chunkContent}". 
@@ -178,9 +178,7 @@ Style requirements:
 - No text or words in the image`
       };
 
-      const prompt = `Generate an image: ${stylePrompts[style] || stylePrompts.infographic}
-
-Focus on the main visual concept or action described in the script and create a visual representation that captures the essence of what's being described or discussed.`;
+      const prompt = `${stylePrompts[style] || stylePrompts.infographic}`;
 
       logger.info('OPENAI', 'Calling image generation API', {
         model: 'gpt-image-1',
@@ -189,6 +187,7 @@ Focus on the main visual concept or action described in the script and create a 
         operation: 'generate_image'
       });
       
+      console.log(prompt)
       const response = await this.openai.images.generate({
         model: "gpt-image-1",
         prompt: prompt,
@@ -258,6 +257,156 @@ Focus on the main visual concept or action described in the script and create a 
       const totalDuration = Date.now() - startTime;
       logger.logImageGeneration(chunkId, color, quality, style, null, totalDuration, error);
       throw new Error('Failed to generate image: ' + error.message);
+    }
+  }
+
+  async generateYouTubeTitle(script, options = {}) {
+    const startTime = Date.now();
+    
+    try {
+      const { style = 'engaging', maxLength = 60 } = options;
+      
+      // Get first 500 characters of script for context
+      const scriptPreview = script.substring(0, 500);
+      
+      const stylePrompts = {
+        engaging: 'Create an engaging, clickable YouTube title that captures attention and encourages clicks',
+        educational: 'Create an educational, informative YouTube title that clearly describes what viewers will learn',
+        dramatic: 'Create a dramatic, compelling YouTube title that builds curiosity and suspense',
+        howto: 'Create a practical "how-to" style YouTube title that promises specific value and results',
+        listicle: 'Create a list-style YouTube title with numbers that promises specific insights or tips'
+      };
+
+      const prompt = `
+        ${stylePrompts[style] || stylePrompts.engaging} based on this script content:
+
+        "${scriptPreview}${script.length > 500 ? '...' : ''}"
+
+        Requirements:
+        - Maximum ${maxLength} characters
+        - Engaging and click-worthy
+        - Accurately represents the content
+        - Uses power words and emotional triggers
+        - Optimized for YouTube algorithm
+        - No clickbait that misleads viewers
+
+        Return only the title, no quotes or additional text.
+      `;
+
+      logger.info('OPENAI', 'Starting YouTube title generation', {
+        model: 'gpt-4',
+        scriptLength: script.length,
+        style,
+        maxLength,
+        operation: 'generate_youtube_title'
+      });
+
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          {
+            role: "system",
+            content: "You are a YouTube content expert specializing in creating viral, engaging titles that drive views while accurately representing content."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        temperature: 0.8,
+        max_tokens: 100
+      });
+
+      const duration = Date.now() - startTime;
+      logger.logOpenAI('generate_youtube_title', 'gpt-4', prompt, response, duration);
+
+      const title = response.choices[0].message.content.trim();
+      
+      logger.info('OPENAI', `YouTube title generated successfully: "${title}"`);
+      return title;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      logger.logOpenAI('generate_youtube_title', 'gpt-4', null, null, duration, error);
+      throw new Error('Failed to generate YouTube title: ' + error.message);
+    }
+  }
+
+  async generateYouTubeDescription(script, title, options = {}) {
+    const startTime = Date.now();
+    
+    try {
+      const { 
+        includeTimestamps = true, 
+        includeHashtags = true, 
+        maxLength = 2000,
+        callToAction = 'Subscribe for more content like this!'
+      } = options;
+      
+      const prompt = `
+        Create a compelling YouTube video description for a video with this title: "${title}"
+        
+        Based on this script content:
+        "${script}"
+
+        Requirements:
+        - Maximum ${maxLength} characters
+        - Engaging opening hook (first 2 lines are crucial)
+        - Brief summary of what viewers will learn/gain
+        - ${includeTimestamps ? 'Include chapter timestamps if the content has clear sections' : 'Do not include timestamps'}
+        - ${includeHashtags ? 'Include 5-10 relevant hashtags at the end' : 'Do not include hashtags'}
+        - Call to action: "${callToAction}"
+        - SEO optimized with relevant keywords
+        - Professional and engaging tone
+        - Encourage engagement (likes, comments, shares)
+
+        Format:
+        1. Hook/Opening (1-2 sentences)
+        2. Video summary (2-3 sentences)
+        3. Key points or what viewers will learn
+        ${includeTimestamps ? '4. Chapter timestamps (if applicable)' : ''}
+        5. Call to action and engagement request
+        ${includeHashtags ? '6. Relevant hashtags' : ''}
+
+        Return the complete description ready to paste into YouTube.
+      `;
+
+      logger.info('OPENAI', 'Starting YouTube description generation', {
+        model: 'gpt-4',
+        scriptLength: script.length,
+        titleLength: title.length,
+        includeTimestamps,
+        includeHashtags,
+        maxLength,
+        operation: 'generate_youtube_description'
+      });
+
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          {
+            role: "system",
+            content: "You are a YouTube content strategist expert at writing descriptions that maximize engagement, watch time, and discoverability."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 800
+      });
+
+      const duration = Date.now() - startTime;
+      logger.logOpenAI('generate_youtube_description', 'gpt-4', prompt, response, duration);
+
+      const description = response.choices[0].message.content.trim();
+      
+      logger.info('OPENAI', `YouTube description generated successfully (${description.length} characters)`);
+      return description;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      logger.logOpenAI('generate_youtube_description', 'gpt-4', null, null, duration, error);
+      throw new Error('Failed to generate YouTube description: ' + error.message);
     }
   }
 }

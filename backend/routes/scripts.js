@@ -200,6 +200,74 @@ router.get('/:scriptId/batch-status', async (req, res) => {
   }
 });
 
+// Generate YouTube metadata (title and description)
+router.post('/:scriptId/generate-youtube-metadata', async (req, res) => {
+  try {
+    const { scriptId } = req.params;
+    const { 
+      titleStyle = 'engaging',
+      titleMaxLength = 60,
+      includeTimestamps = true,
+      includeHashtags = true,
+      descriptionMaxLength = 2000,
+      callToAction = 'Subscribe for more content like this!'
+    } = req.body;
+
+    const script = await Script.findById(scriptId);
+    if (!script) {
+      return res.status(404).json({ error: 'Script not found' });
+    }
+
+    const openaiService = new OpenAIService();
+
+    // Generate YouTube title
+    const title = await openaiService.generateYouTubeTitle(script.originalScript, {
+      style: titleStyle,
+      maxLength: titleMaxLength
+    });
+
+    // Generate YouTube description
+    const description = await openaiService.generateYouTubeDescription(
+      script.originalScript, 
+      title, 
+      {
+        includeTimestamps,
+        includeHashtags,
+        maxLength: descriptionMaxLength,
+        callToAction
+      }
+    );
+
+    // Save the YouTube metadata to the script
+    script.youtubeMetadata = {
+      title,
+      description,
+      generatedAt: new Date(),
+      options: {
+        titleStyle,
+        titleMaxLength,
+        includeTimestamps,
+        includeHashtags,
+        descriptionMaxLength,
+        callToAction
+      }
+    };
+
+    await script.save();
+
+    res.json({
+      success: true,
+      title,
+      description,
+      titleLength: title.length,
+      descriptionLength: description.length
+    });
+
+  } catch (error) {
+    console.error('Error generating YouTube metadata:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Delete a script
 router.delete('/:id', async (req, res) => {

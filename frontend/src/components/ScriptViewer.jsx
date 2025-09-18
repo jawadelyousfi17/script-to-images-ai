@@ -11,6 +11,7 @@ import {
 } from '@mui/joy';
 import ChunkCard from './ChunkCard';
 import BatchImageGenerator from './BatchImageGenerator';
+import YouTubeMetadataGenerator from './YouTubeMetadataGenerator';
 import { scriptAPI } from '../services/api';
 
 const ScriptViewer = ({ script: initialScript }) => {
@@ -87,6 +88,9 @@ const ScriptViewer = ({ script: initialScript }) => {
         script={script} 
         onBatchComplete={handleBatchComplete}
       />
+
+      {/* YouTube Metadata Generator */}
+      <YouTubeMetadataGenerator script={script} />
 
       <Card variant="outlined" sx={{ p: 4, mb: 4 }}>
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '2fr auto' }, gap: 3, alignItems: 'start', mb: 3 }}>

@@ -37,6 +37,19 @@ const scriptSchema = new mongoose.Schema({
     required: true
   },
   chunks: [chunkSchema],
+  youtubeMetadata: {
+    title: String,
+    description: String,
+    generatedAt: Date,
+    options: {
+      titleStyle: String,
+      titleMaxLength: Number,
+      includeTimestamps: Boolean,
+      includeHashtags: Boolean,
+      descriptionMaxLength: Number,
+      callToAction: String
+    }
+  },
   createdAt: {
     type: Date,
     default: Date.now

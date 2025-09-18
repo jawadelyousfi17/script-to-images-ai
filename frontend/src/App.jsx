@@ -16,6 +16,7 @@ import {
 import ScriptForm from './components/ScriptForm';
 import ScriptViewer from './components/ScriptViewer';
 import LogsViewer from './components/LogsViewer';
+import ImageDebugger from './components/ImageDebugger';
 import { scriptAPI } from './services/api';
 
 function App() {
@@ -123,6 +124,13 @@ function App() {
           >
             📋 Server Logs
           </Button>
+          <Button
+            variant={activeTab === 'debug' ? 'solid' : 'outlined'}
+            onClick={() => setActiveTab('debug')}
+            sx={{ fontWeight: 'normal' }}
+          >
+            🔍 Debug Images
+          </Button>
         </Box>
       </Box>
 
@@ -179,6 +187,10 @@ function App() {
 
           {activeTab === 'logs' && (
             <LogsViewer />
+          )}
+
+          {activeTab === 'debug' && (
+            <ImageDebugger />
           )}
         </Box>
       ) : (
