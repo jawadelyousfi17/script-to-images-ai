@@ -144,6 +144,7 @@ Style requirements:
 - Use ONLY one single color: ${color}
 - No gradients, no multiple colors, just one solid color
 - No background (transparent)
+- rounded face with no nose
 - No text or words in the image`,
 
         drawing: `Create a hand-drawn style illustration based on this script content: "${chunkContent}". 
