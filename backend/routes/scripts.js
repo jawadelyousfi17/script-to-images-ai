@@ -2,8 +2,10 @@ const express = require('express');
 const router = express.Router();
 const Script = require('../models/Script');
 const OpenAIService = require('../services/openaiService');
+const ImageService = require('../services/imageService');
 
 const openaiService = new OpenAIService();
+const imageService = new ImageService();
 
 // Create a new script and chunk it
 router.post('/', async (req, res) => {
@@ -43,6 +45,42 @@ router.get('/', async (req, res) => {
     res.json(scripts);
   } catch (error) {
     console.error('Error fetching scripts:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get available image providers
+router.get('/providers', async (req, res) => {
+  try {
+    const providerInfo = imageService.getProviderInfo();
+    const availableProviders = imageService.getAvailableProviders();
+
+    res.json({
+      providers: providerInfo,
+      available: availableProviders,
+      default: 'openai'
+    });
+  } catch (error) {
+    console.error('Error getting provider info:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get account info for a specific provider
+router.get('/providers/:provider/account', async (req, res) => {
+  try {
+    const { provider } = req.params;
+    
+    if (!imageService.isProviderAvailable(provider)) {
+      return res.status(400).json({ 
+        error: `Provider '${provider}' is not available` 
+      });
+    }
+
+    const accountInfo = await imageService.getAccountInfo(provider);
+    res.json(accountInfo);
+  } catch (error) {
+    console.error('Error getting account info:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -98,7 +136,12 @@ router.put('/:scriptId/chunks/:chunkId/regenerate', async (req, res) => {
 router.post('/:scriptId/chunks/:chunkId/generate-image', async (req, res) => {
   try {
     const { scriptId, chunkId } = req.params;
-    const { color = 'white', quality = 'high', style = 'infographic' } = req.body;
+    const { 
+      color = 'white', 
+      quality = 'high', 
+      style = 'infographic',
+      provider = 'openai'
+    } = req.body;
 
     const script = await Script.findById(scriptId);
     if (!script) {
@@ -112,16 +155,26 @@ router.post('/:scriptId/chunks/:chunkId/generate-image', async (req, res) => {
 
     const chunk = script.chunks[chunkIndex];
 
-    // Generate image using OpenAI with full chunk content
-    const imageUrl = await openaiService.generateImage(chunk.content, color, quality, style);
+    // Validate provider
+    if (!imageService.isProviderAvailable(provider)) {
+      return res.status(400).json({ 
+        error: `Provider '${provider}' is not available. Available providers: ${imageService.getAvailableProviders().join(', ')}` 
+      });
+    }
 
-    // Update the chunk with the image URL
+    // Generate image using the specified provider
+    const imageUrl = await imageService.generateImage(chunk.content, provider, color, quality, style);
+
+    // Update the chunk with the image URL and provider info
     script.chunks[chunkIndex].imageUrl = imageUrl;
+    script.chunks[chunkIndex].imageProvider = provider;
+    script.chunks[chunkIndex].imageGeneratedAt = new Date();
     await script.save();
 
     res.json({
       message: 'Image generated successfully',
       imageUrl,
+      provider,
       chunk: script.chunks[chunkIndex]
     });
   } catch (error) {
@@ -134,17 +187,30 @@ router.post('/:scriptId/chunks/:chunkId/generate-image', async (req, res) => {
 router.post('/:scriptId/batch-generate-images', async (req, res) => {
   try {
     const { scriptId } = req.params;
-    const { color = 'white', quality = 'high', style = 'infographic' } = req.body;
+    const { 
+      color = 'white', 
+      quality = 'high', 
+      style = 'infographic',
+      provider = 'openai'
+    } = req.body;
     const jobManager = req.app.locals.jobManager;
 
-    // Create persistent job
-    const job = await jobManager.createBatchImageJob(scriptId, color, quality, style);
+    // Validate provider
+    if (!imageService.isProviderAvailable(provider)) {
+      return res.status(400).json({ 
+        error: `Provider '${provider}' is not available. Available providers: ${imageService.getAvailableProviders().join(', ')}` 
+      });
+    }
+
+    // Create persistent job with provider parameter
+    const job = await jobManager.createBatchImageJob(scriptId, color, quality, style, provider);
 
     res.json({
       message: 'Batch image generation job created',
       jobId: job._id,
       totalChunks: job.progress.totalChunks,
       status: job.status,
+      provider,
       persistent: true
     });
 

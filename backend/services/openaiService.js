@@ -119,6 +119,67 @@ class OpenAIService {
     }
   }
 
+  async analyzeSceneDescription(chunkContent) {
+    const startTime = Date.now();
+    
+    try {
+      const prompt = `
+        Analyze this script content and provide a SIMPLE scene description for pictogram illustration:
+
+        Script content: "${chunkContent}"
+
+        Create a simple, clear description that includes:
+        - Main characters and their basic emotions
+        - Key action or situation
+        - Simple body language
+
+        Keep it SHORT and SIMPLE - suitable for pictogram-style illustration.
+
+        Example outputs:
+        - "Woman reaching toward man, frustrated, he turns away"
+        - "Person stressed, head in hands"
+        - "Two people arguing, pointing fingers"
+        - "Person celebrating, arms raised, happy"
+
+        Provide only the simple scene description, no additional text.
+      `;
+
+      logger.info('OPENAI', 'Starting scene analysis', {
+        model: 'gpt-4',
+        contentLength: chunkContent.length,
+        operation: 'analyze_scene'
+      });
+
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert at analyzing text content and creating vivid scene descriptions for visual artists. Provide clear, concise descriptions that capture emotions, actions, and visual elements."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 150
+      });
+
+      const duration = Date.now() - startTime;
+      logger.logOpenAI('analyze_scene', 'gpt-4', prompt, response, duration);
+
+      const sceneDescription = response.choices[0].message.content.trim();
+      
+      logger.info('OPENAI', `Scene analysis completed: "${sceneDescription}"`);
+      return sceneDescription;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      logger.logOpenAI('analyze_scene', 'gpt-4', null, null, duration, error);
+      throw new Error('Failed to analyze scene: ' + error.message);
+    }
+  }
+
   async generateImage(chunkContent, color = 'white', quality = 'high', style = 'infographic') {
     const startTime = Date.now();
     const chunkId = `chunk_${Date.now()}`;
@@ -133,19 +194,31 @@ class OpenAIService {
         contentPreview: chunkContent.substring(0, 50) + '...'
       });
       
+      // First, get scene analysis from ChatGPT for infographic style
+      let sceneDescription = '';
+      if (style === 'infographic') {
+        logger.info('IMAGE_GEN', 'Getting scene analysis from ChatGPT');
+        sceneDescription = await this.analyzeSceneDescription(chunkContent);
+        logger.info('IMAGE_GEN', `Scene analysis result: "${sceneDescription}"`);
+      }
+      
       // Define style-specific prompts
       const stylePrompts = {
-        infographic: `Create a clean, minimalist infographic-style illustration based on this script content: "${chunkContent}". 
+        infographic: `Create a pictogram-style illustration based on this analyzed scene: "${sceneDescription}"
+
 Style requirements:
-- Modern infographic design 
-- Simple, clean shapes, no lines, Must be filled 
-- Flat design with minimal details 
-- Professional and informative look 
-- Use ONLY one single color: ${color} 
-- No gradients, no multiple colors, just one solid color 
-- No background (transparent) 
-- rounded face with no nose, full bodies 
-- No text or words in the image`,
+- Pictogram/icon style with simple geometric shapes
+- Pure black background (solid #000000)
+- Use ONLY white color (#FFFFFF) for all elements
+- Simple human figures with clear facial expressions that match the scene emotions
+- Rounded heads with expressive eyes and mouth showing the specific emotion
+- Full body stick-figure style or simple geometric bodies
+- Body language and poses that reflect the scene context
+- Clear emotional expressions and interactions between characters
+- Minimalist design with high contrast (white on black)
+- No gradients, no other colors, only pure white on pure black
+- No text or words in the image
+- Focus on conveying the specific scene, emotions, and character relationships through visual storytelling`,
 
         drawing: `Create a hand-drawn style illustration based on this script content: "${chunkContent}". 
 Style requirements:

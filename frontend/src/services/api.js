@@ -57,21 +57,23 @@ export const scriptAPI = {
   },
 
   // Generate image for a chunk
-  generateImage: async (scriptId, chunkId, color = 'white', quality = 'high', style = 'infographic') => {
+  generateImage: async (scriptId, chunkId, color = 'white', quality = 'high', style = 'infographic', provider = 'openai') => {
     const response = await api.post(`/scripts/${scriptId}/chunks/${chunkId}/generate-image`, {
       color,
       quality,
       style,
+      provider,
     });
     return response.data;
   },
 
   // Batch generate images for all chunks
-  batchGenerateImages: async (scriptId, color = 'white', quality = 'high', style = 'infographic') => {
+  batchGenerateImages: async (scriptId, color = 'white', quality = 'high', style = 'infographic', provider = 'openai') => {
     const response = await api.post(`/scripts/${scriptId}/batch-generate-images`, {
       color,
       quality,
       style,
+      provider,
     });
     return response.data;
   },
@@ -91,6 +93,18 @@ export const scriptAPI = {
   // Delete a script
   deleteScript: async (id) => {
     const response = await api.delete(`/scripts/${id}`);
+    return response.data;
+  },
+
+  // Get available image providers
+  getProviders: async () => {
+    const response = await api.get('/scripts/providers');
+    return response.data;
+  },
+
+  // Get account info for a provider
+  getProviderAccount: async (provider) => {
+    const response = await api.get(`/scripts/providers/${provider}/account`);
     return response.data;
   },
 

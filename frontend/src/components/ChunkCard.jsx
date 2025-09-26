@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Button,
@@ -24,6 +24,8 @@ const ChunkCard = ({ chunk, scriptId, onChunkUpdated }) => {
   const [imageColor, setImageColor] = useState('white');
   const [imageQuality, setImageQuality] = useState('high');
   const [imageStyle, setImageStyle] = useState('infographic');
+  const [imageProvider, setImageProvider] = useState('openai');
+  const [providers, setProviders] = useState(null);
 
   const handleRegenerate = async () => {
     setRegenerating(true);
@@ -44,12 +46,31 @@ const ChunkCard = ({ chunk, scriptId, onChunkUpdated }) => {
     }
   };
 
+  // Load providers when component mounts
+  useEffect(() => {
+    const loadProviders = async () => {
+      try {
+        const providerData = await scriptAPI.getProviders();
+        setProviders(providerData);
+        
+        // Set default provider to first available
+        if (providerData.available.length > 0) {
+          setImageProvider(providerData.default || providerData.available[0]);
+        }
+      } catch (err) {
+        console.error('Error loading providers:', err);
+      }
+    };
+
+    loadProviders();
+  }, []);
+
   const handleGenerateImage = async () => {
     setGeneratingImage(true);
     setError('');
 
     try {
-      const result = await scriptAPI.generateImage(scriptId, chunk.id, imageColor, imageQuality, imageStyle);
+      const result = await scriptAPI.generateImage(scriptId, chunk.id, imageColor, imageQuality, imageStyle, imageProvider);
       console.log('Image generated:', result);
       
       if (onChunkUpdated) {
@@ -116,7 +137,7 @@ const ChunkCard = ({ chunk, scriptId, onChunkUpdated }) => {
         </Box>
       </Box>
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr 1fr auto' }, gap: 2, alignItems: 'end', mb: 3 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr 1fr 1fr auto' }, gap: 2, alignItems: 'end', mb: 3 }}>
         <FormControl>
           <FormLabel sx={{ fontWeight: 'normal' }}>Image Color</FormLabel>
           <Input
@@ -155,6 +176,22 @@ const ChunkCard = ({ chunk, scriptId, onChunkUpdated }) => {
           </Select>
         </FormControl>
         
+        <FormControl>
+          <FormLabel sx={{ fontWeight: 'normal' }}>Provider</FormLabel>
+          <Select
+            value={imageProvider}
+            onChange={(event, newValue) => setImageProvider(newValue)}
+            disabled={!providers}
+            size="sm"
+          >
+            {providers?.available.map(provider => (
+              <Option key={provider} value={provider}>
+                {providers.providers[provider]?.name || provider}
+              </Option>
+            ))}
+          </Select>
+        </FormControl>
+        
         <Button
           variant="solid"
           size="sm"
@@ -171,9 +208,16 @@ const ChunkCard = ({ chunk, scriptId, onChunkUpdated }) => {
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'auto 1fr' }, gap: 3, alignItems: 'start' }}>
           <Box sx={{ maxWidth: { xs: '100%', md: '300px' } }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography level="title-sm" sx={{ fontWeight: 'normal' }}>
-                Generated Image
-              </Typography>
+              <Box>
+                <Typography level="title-sm" sx={{ fontWeight: 'normal' }}>
+                  Generated Image
+                </Typography>
+                {chunk.imageProvider && (
+                  <Typography level="body-xs" color="neutral" sx={{ mt: 0.5 }}>
+                    Provider: {providers?.providers[chunk.imageProvider]?.name || chunk.imageProvider}
+                  </Typography>
+                )}
+              </Box>
               <Button
                 variant="outlined"
                 size="sm"

@@ -1,11 +1,11 @@
 const Job = require('../models/Job');
 const Script = require('../models/Script');
-const OpenAIService = require('./openaiService');
+const ImageService = require('./imageService');
 const logger = require('../utils/logger');
 
 class JobManager {
   constructor() {
-    this.openaiService = new OpenAIService();
+    this.imageService = new ImageService();
     this.isProcessing = false;
     this.currentJob = null;
   }
@@ -135,18 +135,25 @@ class JobManager {
         chunkItem.status = 'processing';
         await job.save();
 
-        // Generate image
-        const imageUrl = await this.openaiService.generateImage(
-          scriptChunk.content, 
+        // Generate image using the specified provider
+        const imageUrl = await this.imageService.generateImage(
+          scriptChunk.content,
+          job.config.provider || 'openai',
           job.config.color, 
           job.config.quality,
           job.config.style || 'infographic'
         );
 
-        // Update script with image URL
+        // Update script with image URL and provider info
         await Script.updateOne(
           { _id: job.scriptId, 'chunks.id': chunkItem.chunkId },
-          { $set: { 'chunks.$.imageUrl': imageUrl } }
+          { 
+            $set: { 
+              'chunks.$.imageUrl': imageUrl,
+              'chunks.$.imageProvider': job.config.provider || 'openai',
+              'chunks.$.imageGeneratedAt': new Date()
+            } 
+          }
         );
 
         // Mark chunk as completed
@@ -174,7 +181,7 @@ class JobManager {
   }
 
   // Create a new batch image generation job
-  async createBatchImageJob(scriptId, color, quality, style = 'infographic') {
+  async createBatchImageJob(scriptId, color, quality, style = 'infographic', provider = 'openai') {
     const script = await Script.findById(scriptId);
     if (!script) {
       throw new Error('Script not found');
@@ -208,7 +215,7 @@ class JobManager {
         processedChunks: 0,
         failedChunks: 0
       },
-      config: { color, quality, style },
+      config: { color, quality, style, provider },
       chunksToProcess: chunksWithoutImages.map(chunk => ({
         chunkId: chunk.id,
         status: 'pending'
@@ -222,7 +229,8 @@ class JobManager {
       totalChunks: chunksWithoutImages.length,
       color,
       quality,
-      style
+      style,
+      provider
     });
     
     return job;
