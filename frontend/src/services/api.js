@@ -84,6 +84,18 @@ export const scriptAPI = {
     return response.data;
   },
 
+  // Cancel batch generation job
+  cancelBatchJob: async (scriptId) => {
+    const response = await api.post(`/scripts/${scriptId}/cancel-batch`);
+    return response.data;
+  },
+
+  // Clear all jobs for a script (debug)
+  clearAllJobs: async (scriptId) => {
+    const response = await api.post(`/scripts/${scriptId}/clear-jobs`);
+    return response.data;
+  },
+
   // Generate YouTube metadata (title and description)
   generateYouTubeMetadata: async (scriptId, options = {}) => {
     const response = await api.post(`/scripts/${scriptId}/generate-youtube-metadata`, options);

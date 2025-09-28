@@ -221,6 +221,7 @@ const ChunkCard = ({ chunk, scriptId, onChunkUpdated }) => {
               <Button
                 variant="outlined"
                 size="sm"
+                className="downloadBtn"
                 onClick={() => {
                   const filename = chunk.imageUrl.split('/').pop();
                   const downloadUrl = `${chunk.imageUrl}/download`;

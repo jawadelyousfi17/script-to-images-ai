@@ -202,15 +202,29 @@ router.post('/:scriptId/batch-generate-images', async (req, res) => {
       });
     }
 
+    console.log(`🔧 [DEBUG] Creating batch job with:`, {
+      scriptId,
+      color,
+      quality,
+      style,
+      provider
+    });
+
     // Create persistent job with provider parameter
     const job = await jobManager.createBatchImageJob(scriptId, color, quality, style, provider);
+
+    console.log(`🔧 [DEBUG] Job created with config:`, {
+      jobId: job._id,
+      config: job.config,
+      provider: job.config?.provider
+    });
 
     res.json({
       message: 'Batch image generation job created',
       jobId: job._id,
       totalChunks: job.progress.totalChunks,
       status: job.status,
-      provider,
+      provider: job.config?.provider || provider,
       persistent: true
     });
 
@@ -257,7 +271,8 @@ router.get('/:scriptId/batch-status', async (req, res) => {
       chunksRemaining: jobStatus.progress.totalChunks - jobStatus.progress.processedChunks,
       progress: jobStatus.completionPercentage,
       isComplete: jobStatus.isComplete,
-      hasJob: true
+      hasJob: true,
+      provider: jobStatus.config?.provider || 'openai' // Show which provider the job is using
     });
 
   } catch (error) {
@@ -331,6 +346,40 @@ router.post('/:scriptId/generate-youtube-metadata', async (req, res) => {
 
   } catch (error) {
     console.error('Error generating YouTube metadata:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Cancel batch image generation job
+router.post('/:scriptId/cancel-batch', async (req, res) => {
+  try {
+    const { scriptId } = req.params;
+    const jobManager = req.app.locals.jobManager;
+
+    const result = await jobManager.cancelBatchJob(scriptId);
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Error cancelling batch job:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Clear all jobs for a script (debug endpoint)
+router.post('/:scriptId/clear-jobs', async (req, res) => {
+  try {
+    const { scriptId } = req.params;
+    const Job = require('../models/Job');
+    
+    const result = await Job.deleteMany({ scriptId });
+    console.log(`🗑️ Cleared ${result.deletedCount} jobs for script ${scriptId}`);
+    
+    res.json({ 
+      message: `Cleared ${result.deletedCount} jobs`,
+      deletedCount: result.deletedCount 
+    });
+  } catch (error) {
+    console.error('Error clearing jobs:', error);
     res.status(500).json({ error: error.message });
   }
 });

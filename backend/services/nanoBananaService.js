@@ -8,7 +8,7 @@ class NanoBananaService {
   constructor() {
     this.apiKey = process.env.NANOBANANA_API_KEY;
     this.baseUrl = 'https://api.nanobananaapi.ai/api/v1/nanobanana';
-    
+
     if (!this.apiKey) {
       console.warn('NANOBANANA_API_KEY not found in environment variables');
     }
@@ -17,7 +17,7 @@ class NanoBananaService {
   async generateImage(chunkContent, color = 'white', quality = 'high', style = 'infographic') {
     const startTime = Date.now();
     const chunkId = `chunk_${Date.now()}`;
-    
+
     try {
       if (!this.apiKey) {
         throw new Error('NanoBanana API key not configured');
@@ -31,7 +31,7 @@ class NanoBananaService {
         contentLength: chunkContent.length,
         contentPreview: chunkContent.substring(0, 50) + '...'
       });
-      
+
       // Define style-specific prompts similar to OpenAI service
       const stylePrompts = {
         infographic: `Create a pictogram-style illustration based on this script content: "${chunkContent}"
@@ -58,15 +58,15 @@ Style requirements:
 - No background (transparent)
 - No text or words in the image`,
 
-        illustration: `Create a detailed artistic illustration based on this script content: "${chunkContent}". 
-Style requirements:
-- Rich, detailed illustration style
-- Artistic and creative interpretation
-- More complex visual elements
-- Professional illustration quality
-- Primary color: ${color}
-- No background (transparent)
-- No text or words in the image`,
+        illustration: `
+        
+        Style requirements:
+        Minimalist cartoon illustration,
+         hand-drawn style,
+          soft color palette,
+           simple lines and shapes,
+            minimal shading, charming and friendly aesthetic,
+             rounded edges.`,
 
         abstract: `Create an abstract artistic representation based on this script content: "${chunkContent}". 
 Style requirements:
@@ -90,7 +90,7 @@ Style requirements:
       console.log('='.repeat(80));
       console.log(prompt);
       console.log('='.repeat(80));
-      
+
       // Step 1: Submit generation task
       const generateResponse = await axios.post(`${this.baseUrl}/generate`, {
         prompt: prompt,
@@ -112,7 +112,7 @@ Style requirements:
 
       const totalDuration = Date.now() - startTime;
       logger.logImageGeneration(chunkId, color, quality, style, imageUrl, totalDuration);
-      
+
       return imageUrl;
     } catch (error) {
       const totalDuration = Date.now() - startTime;
@@ -124,7 +124,7 @@ Style requirements:
   async generateImageWithScene(sceneDescription, color = 'white', quality = 'high', style = 'infographic') {
     const startTime = Date.now();
     const chunkId = `scene_${Date.now()}`;
-    
+
     try {
       if (!this.apiKey) {
         throw new Error('NanoBanana API key not configured');
@@ -137,7 +137,7 @@ Style requirements:
         style,
         sceneDescription: sceneDescription.substring(0, 100) + '...'
       });
-      
+
       // Create prompt based on the analyzed scene description from GPT
       const prompt = `Create a pictogram-style illustration of: ${sceneDescription}
 
@@ -183,7 +183,7 @@ Style requirements:
 
       const totalDuration = Date.now() - startTime;
       logger.logImageGeneration(chunkId, color, quality, style, imageUrl, totalDuration);
-      
+
       return imageUrl;
     } catch (error) {
       const totalDuration = Date.now() - startTime;
@@ -194,7 +194,7 @@ Style requirements:
 
   async pollTaskCompletion(taskId, chunkContent, maxAttempts = 30, pollInterval = 5000) {
     let attempts = 0;
-    
+
     while (attempts < maxAttempts) {
       try {
         const response = await axios.get(`${this.baseUrl}/record-info`, {
@@ -205,26 +205,26 @@ Style requirements:
         });
 
         const taskData = response.data.data;
-        
+
         if (taskData.successFlag === 1) {
           // Task completed successfully
           logger.info('NANOBANANA', `Task ${taskId} completed successfully`);
-          
+
           // Download and save the image
           const imageUrl = await this.downloadAndSaveImage(
             taskData.response.resultImageUrl || taskData.response.originImageUrl,
             chunkContent
           );
-          
+
           return imageUrl;
         } else if (taskData.successFlag === 2 || taskData.successFlag === 3) {
           // Task failed
           throw new Error(`NanoBanana task failed: ${taskData.errorMessage || 'Unknown error'}`);
         }
-        
+
         // Task still in progress (successFlag === 0)
         logger.info('NANOBANANA', `Task ${taskId} still in progress, attempt ${attempts + 1}/${maxAttempts}`);
-        
+
         attempts++;
         if (attempts < maxAttempts) {
           await new Promise(resolve => setTimeout(resolve, pollInterval));
@@ -236,7 +236,7 @@ Style requirements:
         throw error;
       }
     }
-    
+
     throw new Error(`Task ${taskId} did not complete within ${maxAttempts * pollInterval / 1000} seconds`);
   }
 
@@ -256,7 +256,7 @@ Style requirements:
       // Extract last 2 words from chunk content for filename
       const words = chunkContent.trim().split(/\s+/).filter(word => word.length > 0);
       let lastTwoWords = '';
-      
+
       if (words.length >= 2) {
         lastTwoWords = words.slice(-2).join('_');
       } else if (words.length === 1) {
@@ -264,25 +264,25 @@ Style requirements:
       } else {
         lastTwoWords = 'content';
       }
-      
+
       // Clean filename and ensure it's not too long
       lastTwoWords = lastTwoWords
         .replace(/[^a-zA-Z0-9_]/g, '')
         .toLowerCase()
         .substring(0, 20); // Limit length
-      
+
       const shortId = uuidv4().substring(0, 8);
-      
+
       // Generate descriptive filename
       const filename = `nanobanana_${shortId}_${lastTwoWords || 'chunk'}.png`;
       const filepath = path.join(uploadsDir, filename);
-      
+
       // Save the image
       fs.writeFileSync(filepath, response.data);
-      
+
       const localImageUrl = `/api/images/${filename}`;
       logger.info('NANOBANANA', `Image saved successfully: ${localImageUrl}`);
-      
+
       return localImageUrl;
     } catch (error) {
       logger.error('NANOBANANA', `Failed to download and save image: ${error.message}`);

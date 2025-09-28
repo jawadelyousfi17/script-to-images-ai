@@ -25,11 +25,26 @@ class ImageService {
     const startTime = Date.now();
     
     try {
+      // TEMPORARY DEBUG: Force nanobanana if it was requested
+      if (provider === 'nanobanana') {
+        console.log(`🚨 [FORCE DEBUG] NanoBanana was requested, forcing it!`);
+      }
+      
       // Validate provider
       if (!this.providers[provider]) {
         throw new Error(`Invalid image provider: ${provider}. Available providers: ${Object.keys(this.providers).join(', ')}`);
       }
 
+      console.log(`🔧 [DEBUG] ImageService.generateImage called with:`, {
+        provider,
+        color,
+        quality,
+        style,
+        contentLength: chunkContent.length
+      });
+      
+      console.log(`🔧 [CRITICAL DEBUG] About to check provider logic for: ${provider} with style: ${style}`);
+      
       logger.info('IMAGE_SERVICE', `Generating image with provider: ${provider}`, {
         provider,
         color,
@@ -40,10 +55,12 @@ class ImageService {
 
       // For NanoBanana provider with infographic style, use OpenAI for scene analysis first
       if (provider === 'nanobanana' && style === 'infographic') {
+        console.log(`🎯 [NANOBANANA PATH] Taking NanoBanana + infographic path!`);
         logger.info('IMAGE_SERVICE', 'Using OpenAI for scene analysis before NanoBanana generation');
         const sceneDescription = await this.openaiService.analyzeSceneDescription(chunkContent);
         logger.info('IMAGE_SERVICE', `Scene analysis result: "${sceneDescription}"`);
         
+        console.log(`🎯 [NANOBANANA PATH] About to call NanoBanana generateImageWithScene`);
         // Pass the scene description to NanoBanana
         const service = this.providers[provider];
         const imageUrl = await service.generateImageWithScene(sceneDescription, color, quality, style);
@@ -58,6 +75,7 @@ class ImageService {
 
         return imageUrl;
       } else {
+        console.log(`🔄 [STANDARD PATH] Taking standard path for provider: ${provider}, style: ${style}`);
         // Use the provider's standard generation method
         const service = this.providers[provider];
         const imageUrl = await service.generateImage(chunkContent, color, quality, style);

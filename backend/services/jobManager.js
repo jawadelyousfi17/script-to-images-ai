@@ -114,6 +114,12 @@ class JobManager {
 
     for (const chunkItem of pendingChunks) {
       try {
+        // Check if job has been cancelled
+        const currentJob = await Job.findById(job._id);
+        if (currentJob.status === 'cancelled') {
+          console.log(`🛑 Job ${job._id} was cancelled, stopping processing`);
+          return;
+        }
         // Find the actual chunk in the script
         const scriptChunk = script.chunks.find(c => c.id === chunkItem.chunkId);
         if (!scriptChunk) {
@@ -136,6 +142,14 @@ class JobManager {
         await job.save();
 
         // Generate image using the specified provider
+        console.log(`🔧 [DEBUG] Job config:`, {
+          provider: job.config.provider,
+          color: job.config.color,
+          quality: job.config.quality,
+          style: job.config.style,
+          jobId: job._id
+        });
+        
         const imageUrl = await this.imageService.generateImage(
           scriptChunk.content,
           job.config.provider || 'openai',
@@ -269,6 +283,74 @@ class JobManager {
   stopProcessor() {
     console.log('🛑 Stopping job processor...');
     this.isProcessing = false;
+  }
+
+  // Cancel/stop a batch job
+  async cancelBatchJob(scriptId) {
+    try {
+      const job = await Job.findOne({
+        scriptId,
+        type: 'batch_image_generation',
+        status: { $in: ['pending', 'processing'] }
+      });
+
+      if (!job) {
+        throw new Error('No active batch job found for this script');
+      }
+
+      // Update job status to cancelled
+      job.status = 'cancelled';
+      job.progress.cancelledAt = new Date();
+      await job.save();
+
+      logger.info('JOB_MANAGER', `Batch job cancelled for script ${scriptId}`, {
+        jobId: job._id,
+        processedChunks: job.progress.processedChunks,
+        totalChunks: job.progress.totalChunks
+      });
+
+      return {
+        message: 'Batch job cancelled successfully',
+        jobId: job._id,
+        processedChunks: job.progress.processedChunks,
+        totalChunks: job.progress.totalChunks
+      };
+    } catch (error) {
+      logger.error('JOB_MANAGER', 'Failed to cancel batch job', {
+        scriptId,
+        error: error.message
+      });
+      throw error;
+    }
+  }
+
+  // Get current batch job status
+  async getBatchJobStatus(scriptId) {
+    try {
+      const job = await Job.findOne({
+        scriptId,
+        type: 'batch_image_generation'
+      }).sort({ createdAt: -1 });
+
+      if (!job) {
+        return null;
+      }
+
+      return {
+        jobId: job._id,
+        status: job.status,
+        progress: job.progress,
+        config: job.config,
+        createdAt: job.createdAt,
+        updatedAt: job.updatedAt
+      };
+    } catch (error) {
+      logger.error('JOB_MANAGER', 'Failed to get batch job status', {
+        scriptId,
+        error: error.message
+      });
+      throw error;
+    }
   }
 }
 

@@ -13,7 +13,7 @@ const jobSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'processing', 'completed', 'failed', 'paused'],
+    enum: ['pending', 'processing', 'completed', 'failed', 'paused', 'cancelled'],
     default: 'pending'
   },
   progress: {
@@ -23,7 +23,9 @@ const jobSchema = new mongoose.Schema({
   },
   config: {
     color: { type: String, default: 'white' },
-    quality: { type: String, default: 'high' }
+    quality: { type: String, default: 'high' },
+    style: { type: String, default: 'infographic' },
+    provider: { type: String, default: 'openai' }
   },
   chunksToProcess: [{
     chunkId: String,
@@ -60,7 +62,9 @@ jobSchema.virtual('completionPercentage').get(function() {
 
 // Check if job is complete
 jobSchema.virtual('isComplete').get(function() {
-  return this.progress.processedChunks >= this.progress.totalChunks || this.status === 'completed';
+  return this.progress.processedChunks >= this.progress.totalChunks || 
+         this.status === 'completed' || 
+         this.status === 'cancelled';
 });
 
 jobSchema.set('toJSON', { virtuals: true });

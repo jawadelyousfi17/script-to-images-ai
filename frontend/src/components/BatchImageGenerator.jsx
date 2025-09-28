@@ -121,6 +121,52 @@ const BatchImageGenerator = ({ script, onBatchComplete }) => {
     }
   };
 
+  const handleCancelBatch = async () => {
+    if (!script?._id) {
+      return;
+    }
+
+    try {
+      const result = await scriptAPI.cancelBatchJob(script._id);
+      console.log('Batch job cancelled:', result);
+      
+      setIsGenerating(false);
+      setBatchStatus(prev => prev ? {
+        ...prev,
+        isComplete: true,
+        isCancelled: true
+      } : null);
+      
+      if (onBatchComplete) {
+        onBatchComplete();
+      }
+    } catch (err) {
+      console.error('Error cancelling batch job:', err);
+      setError(err.response?.data?.error || 'Failed to cancel batch job');
+    }
+  };
+
+  const handleClearJobs = async () => {
+    if (!script?._id) {
+      return;
+    }
+
+    try {
+      const result = await scriptAPI.clearAllJobs(script._id);
+      console.log('All jobs cleared:', result);
+      
+      setIsGenerating(false);
+      setBatchStatus(null);
+      
+      if (onBatchComplete) {
+        onBatchComplete();
+      }
+    } catch (err) {
+      console.error('Error clearing jobs:', err);
+      setError(err.response?.data?.error || 'Failed to clear jobs');
+    }
+  };
+
   if (!script) {
     return null;
   }
@@ -128,6 +174,8 @@ const BatchImageGenerator = ({ script, onBatchComplete }) => {
   const chunksWithoutImages = script.chunks?.filter(chunk => !chunk.imageUrl) || [];
   const allChunksHaveImages = chunksWithoutImages.length === 0;
   const hasActiveJob = batchStatus?.hasJob && (batchStatus?.status === 'pending' || batchStatus?.status === 'processing');
+  const activeJobProvider = batchStatus?.provider;
+  const providerMismatch = hasActiveJob && activeJobProvider && activeJobProvider !== batchProvider;
 
   return (
     <Card variant="outlined" sx={{ p: 4, mb: 4, maxWidth: '100%' }}>
@@ -310,6 +358,24 @@ const BatchImageGenerator = ({ script, onBatchComplete }) => {
           )}
         </Box>
       )}
+      
+      {error && (
+        <Alert color="danger" variant="soft" sx={{ mb: 3 }}>
+          <Typography level="body-sm" sx={{ fontWeight: 'normal' }}>
+            {error}
+          </Typography>
+        </Alert>
+      )}
+
+      {providerMismatch && (
+        <Alert color="warning" variant="soft" sx={{ mb: 3 }}>
+          <Typography level="body-sm" sx={{ fontWeight: 'normal' }}>
+            ⚠️ Active job is using <strong>{providers?.providers[activeJobProvider]?.name || activeJobProvider}</strong> provider, 
+            but you have <strong>{providers?.providers[batchProvider]?.name || batchProvider}</strong> selected. 
+            Cancel the current job to start a new one with the selected provider.
+          </Typography>
+        </Alert>
+      )}
 
       <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
         <Button
@@ -327,6 +393,26 @@ const BatchImageGenerator = ({ script, onBatchComplete }) => {
                 ? 'All Images Generated' 
                 : `Generate ${chunksWithoutImages.length} Images`
           }
+        </Button>
+
+        {(isGenerating || hasActiveJob) && (
+          <Button
+            variant="outlined"
+            color="danger"
+            onClick={handleCancelBatch}
+            sx={{ fontWeight: 'normal' }}
+          >
+            Cancel Job
+          </Button>
+        )}
+
+        <Button
+          variant="outlined"
+          color="warning"
+          onClick={handleClearJobs}
+          sx={{ fontWeight: 'normal' }}
+        >
+          🗑️ Clear All Jobs
         </Button>
 
         {(isGenerating || (batchStatus && batchStatus.status === 'processing')) && (
