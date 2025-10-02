@@ -60,6 +60,7 @@ Style requirements:
 
         illustration: `
         
+        
         Style requirements:
         Minimalist cartoon illustration,
          hand-drawn style,
