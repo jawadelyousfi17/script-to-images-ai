@@ -141,8 +141,7 @@ Style requirements:
 
       // Create prompt based on the analyzed scene description from GPT
       const prompt = `Create a pictogram-style illustration of: ${sceneDescription}
-
-Style requirements:
+- Only one character in the frame.
 - Pictogram/icon style with simple geometric shapes
 - Pure black background (solid #000000)
 - Use ONLY white color (#FFFFFF) for all elements
@@ -193,6 +192,77 @@ Style requirements:
     }
   }
 
+  async generateSymbolImage(symbolDescription, color = 'white', quality = 'high', style = 'infographic') {
+    const startTime = Date.now();
+    const chunkId = `symbol_${Date.now()}`;
+
+    try {
+      if (!this.apiKey) {
+        throw new Error('NanoBanana API key not configured');
+      }
+
+      logger.info('IMAGE_GEN', `Starting NanoBanana symbol/object image generation`, {
+        chunkId,
+        color,
+        quality,
+        style,
+        symbolDescription: symbolDescription.substring(0, 100) + '...'
+      });
+
+      // Create prompt for symbol/object based on the analyzed description from GPT
+      const prompt = `Create a pictogram-style icon of: ${symbolDescription}
+- Single iconic symbol or object only
+- NO people, NO characters, NO human figures
+- Pictogram/icon style with simple geometric shapes
+- Pure black background (solid #000000)
+- Use ONLY white color (#FFFFFF) for all elements
+- Clean, simple, and recognizable design
+- Centered composition
+- Minimalist design with high contrast (white on black)
+- No gradients, no other colors, only pure white on pure black
+- No text or words in the image
+- Focus on making the symbol/object instantly recognizable`;
+
+      logger.info('NANOBANANA', 'Calling image generation API with symbol description', {
+        model: 'nanobanana',
+        operation: 'generate_symbol_image'
+      });
+
+      console.log('🔣 [NANOBANANA] Symbol-based prompt being sent to NanoBanana API:');
+      console.log('='.repeat(80));
+      console.log(prompt);
+      console.log('='.repeat(80));
+
+      // Step 1: Submit generation task
+      const generateResponse = await axios.post(`${this.baseUrl}/generate`, {
+        prompt: prompt,
+        numImages: 1,
+        type: 'TEXTTOIAMGE',
+        callBackUrl: 'https://placeholder-callback.com/callback' // We'll poll instead
+      }, {
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const taskId = generateResponse.data.data.taskId;
+      logger.info('NANOBANANA', `Symbol-based task created with ID: ${taskId}`);
+
+      // Step 2: Poll for completion with symbol flag
+      const imageUrl = await this.pollTaskCompletionSymbol(taskId, symbolDescription);
+
+      const totalDuration = Date.now() - startTime;
+      logger.logImageGeneration(chunkId, color, quality, style, imageUrl, totalDuration);
+
+      return imageUrl;
+    } catch (error) {
+      const totalDuration = Date.now() - startTime;
+      logger.logImageGeneration(chunkId, color, quality, style, null, totalDuration, error);
+      throw new Error('Failed to generate symbol image: ' + error.message);
+    }
+  }
+
   async pollTaskCompletion(taskId, chunkContent, maxAttempts = 30, pollInterval = 5000) {
     let attempts = 0;
 
@@ -214,7 +284,8 @@ Style requirements:
           // Download and save the image
           const imageUrl = await this.downloadAndSaveImage(
             taskData.response.resultImageUrl || taskData.response.originImageUrl,
-            chunkContent
+            chunkContent,
+            false
           );
 
           return imageUrl;
@@ -241,7 +312,56 @@ Style requirements:
     throw new Error(`Task ${taskId} did not complete within ${maxAttempts * pollInterval / 1000} seconds`);
   }
 
-  async downloadAndSaveImage(imageUrl, chunkContent) {
+  async pollTaskCompletionSymbol(taskId, symbolContent, maxAttempts = 30, pollInterval = 5000) {
+    let attempts = 0;
+
+    while (attempts < maxAttempts) {
+      try {
+        const response = await axios.get(`${this.baseUrl}/record-info`, {
+          params: { taskId },
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`
+          }
+        });
+
+        const taskData = response.data.data;
+
+        if (taskData.successFlag === 1) {
+          // Task completed successfully
+          logger.info('NANOBANANA', `Symbol task ${taskId} completed successfully`);
+
+          // Download and save the symbol image
+          const imageUrl = await this.downloadAndSaveImage(
+            taskData.response.resultImageUrl || taskData.response.originImageUrl,
+            symbolContent,
+            true
+          );
+
+          return imageUrl;
+        } else if (taskData.successFlag === 2 || taskData.successFlag === 3) {
+          // Task failed
+          throw new Error(`NanoBanana symbol task failed: ${taskData.errorMessage || 'Unknown error'}`);
+        }
+
+        // Task still in progress (successFlag === 0)
+        logger.info('NANOBANANA', `Symbol task ${taskId} still in progress, attempt ${attempts + 1}/${maxAttempts}`);
+
+        attempts++;
+        if (attempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, pollInterval));
+        }
+      } catch (error) {
+        if (error.response?.status === 404) {
+          throw new Error(`Symbol task ${taskId} not found`);
+        }
+        throw error;
+      }
+    }
+
+    throw new Error(`Symbol task ${taskId} did not complete within ${maxAttempts * pollInterval / 1000} seconds`);
+  }
+
+  async downloadAndSaveImage(imageUrl, chunkContent, isSymbol = false) {
     try {
       // Download the image
       const response = await axios.get(imageUrl, {
@@ -274,15 +394,17 @@ Style requirements:
 
       const shortId = uuidv4().substring(0, 8);
 
-      // Generate descriptive filename
-      const filename = `nanobanana_${shortId}_${lastTwoWords || 'chunk'}.png`;
+      // Generate descriptive filename with symbol prefix if needed
+      const prefix = isSymbol ? 'symbol' : 'nanobanana';
+      const filename = `${prefix}_${shortId}_${lastTwoWords || 'chunk'}.png`;
       const filepath = path.join(uploadsDir, filename);
 
       // Save the image
       fs.writeFileSync(filepath, response.data);
 
       const localImageUrl = `/api/images/${filename}`;
-      logger.info('NANOBANANA', `Image saved successfully: ${localImageUrl}`);
+      const imageType = isSymbol ? 'Symbol image' : 'Image';
+      logger.info('NANOBANANA', `${imageType} saved successfully: ${localImageUrl}`);
 
       return localImageUrl;
     } catch (error) {

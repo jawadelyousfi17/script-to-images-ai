@@ -163,20 +163,42 @@ router.post('/:scriptId/chunks/:chunkId/generate-image', async (req, res) => {
     }
 
     // Generate image using the specified provider
-    const imageUrl = await imageService.generateImage(chunk.content, provider, color, quality, style);
+    const result = await imageService.generateImage(chunk.content, provider, color, quality, style);
 
-    // Update the chunk with the image URL and provider info
-    script.chunks[chunkIndex].imageUrl = imageUrl;
-    script.chunks[chunkIndex].imageProvider = provider;
-    script.chunks[chunkIndex].imageGeneratedAt = new Date();
-    await script.save();
+    // Handle both single image and dual image responses
+    if (result.mainImageUrl && result.secondaryImageUrl) {
+      // Dual image response (NanoBanana with infographic style)
+      script.chunks[chunkIndex].imageUrl = result.mainImageUrl;
+      script.chunks[chunkIndex].secondaryImageUrl = result.secondaryImageUrl;
+      script.chunks[chunkIndex].sceneDescription = result.sceneDescription;
+      script.chunks[chunkIndex].symbolDescription = result.symbolDescription;
+      script.chunks[chunkIndex].imageProvider = provider;
+      script.chunks[chunkIndex].imageGeneratedAt = new Date();
+      await script.save();
 
-    res.json({
-      message: 'Image generated successfully',
-      imageUrl,
-      provider,
-      chunk: script.chunks[chunkIndex]
-    });
+      res.json({
+        message: 'Images generated successfully',
+        imageUrl: result.mainImageUrl,
+        secondaryImageUrl: result.secondaryImageUrl,
+        sceneDescription: result.sceneDescription,
+        symbolDescription: result.symbolDescription,
+        provider,
+        chunk: script.chunks[chunkIndex]
+      });
+    } else {
+      // Single image response (standard)
+      script.chunks[chunkIndex].imageUrl = result;
+      script.chunks[chunkIndex].imageProvider = provider;
+      script.chunks[chunkIndex].imageGeneratedAt = new Date();
+      await script.save();
+
+      res.json({
+        message: 'Image generated successfully',
+        imageUrl: result,
+        provider,
+        chunk: script.chunks[chunkIndex]
+      });
+    }
   } catch (error) {
     console.error('Error generating image:', error);
     res.status(500).json({ error: error.message });

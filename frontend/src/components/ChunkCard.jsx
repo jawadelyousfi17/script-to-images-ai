@@ -24,7 +24,7 @@ const ChunkCard = ({ chunk, scriptId, onChunkUpdated }) => {
   const [imageColor, setImageColor] = useState('white');
   const [imageQuality, setImageQuality] = useState('high');
   const [imageStyle, setImageStyle] = useState('infographic');
-  const [imageProvider, setImageProvider] = useState('openai');
+  const [imageProvider, setImageProvider] = useState('nanobanana');
   const [providers, setProviders] = useState(null);
 
   const handleRegenerate = async () => {
@@ -53,9 +53,12 @@ const ChunkCard = ({ chunk, scriptId, onChunkUpdated }) => {
         const providerData = await scriptAPI.getProviders();
         setProviders(providerData);
         
-        // Set default provider to first available
+        // Set default provider to nanobanana if available, otherwise use first available
         if (providerData.available.length > 0) {
-          setImageProvider(providerData.default || providerData.available[0]);
+          const preferredProvider = providerData.available.includes('nanobanana') 
+            ? 'nanobanana' 
+            : (providerData.default || providerData.available[0]);
+          setImageProvider(preferredProvider);
         }
       } catch (err) {
         console.error('Error loading providers:', err);
@@ -205,66 +208,122 @@ const ChunkCard = ({ chunk, scriptId, onChunkUpdated }) => {
       </Box>
 
       {chunk.imageUrl && (
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'auto 1fr' }, gap: 3, alignItems: 'start' }}>
-          <Box sx={{ maxWidth: { xs: '100%', md: '300px' } }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Box>
-                <Typography level="title-sm" sx={{ fontWeight: 'normal' }}>
-                  Generated Image
-                </Typography>
-                {chunk.imageProvider && (
-                  <Typography level="body-xs" color="neutral" sx={{ mt: 0.5 }}>
-                    Provider: {providers?.providers[chunk.imageProvider]?.name || chunk.imageProvider}
-                  </Typography>
-                )}
-              </Box>
-              <Button
-                variant="outlined"
-                size="sm"
-                className="downloadBtn"
-                onClick={() => {
-                  const filename = chunk.imageUrl.split('/').pop();
-                  const downloadUrl = `${chunk.imageUrl}/download`;
-                  const link = document.createElement('a');
-                  link.href = downloadUrl;
-                  link.download = filename;
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-                }}
-                sx={{ fontWeight: 'normal' }}
-                title={`Download: ${chunk.imageUrl.split('/').pop()}`}
-              >
-                Download PNG
-              </Button>
-            </Box>
-            <AspectRatio ratio="1">
-              <img
-                src={chunk.imageUrl}
-                alt={`Generated image for: ${chunk.topic || 'chunk'}`}
-                style={{
-                  objectFit: 'contain',
-                  borderRadius: '8px',
-                }}
-                onLoad={() => console.log('Image loaded successfully')}
-                onError={(e) => {
-                  console.error('Image failed to load:', e);
-                  console.log('Image URL:', chunk.imageUrl);
-                }}
-              />
-            </AspectRatio>
-          </Box>
+        <Box>
+          <Typography level="title-md" sx={{ fontWeight: 'normal', mb: 2 }}>
+            Generated Images
+          </Typography>
           
-          <Box sx={{ display: { xs: 'none', md: 'block' } }}>
-            <Typography level="body-xs" color="neutral" sx={{ mb: 1 }}>
-              Filename
-            </Typography>
-            <Typography level="body-xs" color="neutral" sx={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>
-              {chunk.imageUrl.split('/').pop()}
-            </Typography>
-            <Typography level="body-xs" color="neutral" sx={{ mt: 1, opacity: 0.7 }}>
-              Contains last 2 words from script
-            </Typography>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: chunk.secondaryImageUrl ? '1fr 1fr' : '1fr' }, gap: 3 }}>
+            {/* Main Image (Scene with Characters) */}
+            <Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Box>
+                  <Typography level="title-sm" sx={{ fontWeight: 'normal' }}>
+                    🎬 Main Image {chunk.sceneDescription && '(Scene)'}
+                  </Typography>
+                  {chunk.imageProvider && (
+                    <Typography level="body-xs" color="neutral" sx={{ mt: 0.5 }}>
+                      Provider: {providers?.providers[chunk.imageProvider]?.name || chunk.imageProvider}
+                    </Typography>
+                  )}
+                  {chunk.sceneDescription && (
+                    <Typography level="body-xs" color="primary" sx={{ mt: 0.5, fontStyle: 'italic' }}>
+                      {chunk.sceneDescription}
+                    </Typography>
+                  )}
+                </Box>
+                <Button
+                  variant="outlined"
+                  size="sm"
+                  onClick={() => {
+                    const filename = chunk.imageUrl.split('/').pop();
+                    const downloadUrl = `${chunk.imageUrl}/download`;
+                    const link = document.createElement('a');
+                    link.href = downloadUrl;
+                    link.download = filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }}
+                  sx={{ fontWeight: 'normal' }}
+                  title={`Download: ${chunk.imageUrl.split('/').pop()}`}
+                >
+                  Download
+                </Button>
+              </Box>
+              <AspectRatio ratio="1">
+                <img
+                  src={chunk.imageUrl}
+                  alt={`Main image: ${chunk.sceneDescription || chunk.topic || 'scene'}`}
+                  style={{
+                    objectFit: 'contain',
+                    borderRadius: '8px',
+                  }}
+                  onLoad={() => console.log('Main image loaded successfully')}
+                  onError={(e) => {
+                    console.error('Main image failed to load:', e);
+                    console.log('Image URL:', chunk.imageUrl);
+                  }}
+                />
+              </AspectRatio>
+              <Typography level="body-xs" color="neutral" sx={{ mt: 1, fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                {chunk.imageUrl.split('/').pop()}
+              </Typography>
+            </Box>
+
+            {/* Secondary Image (Symbol/Object) */}
+            {chunk.secondaryImageUrl && (
+              <Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Box>
+                    <Typography level="title-sm" sx={{ fontWeight: 'normal' }}>
+                      🔣 Secondary Image (Symbol)
+                    </Typography>
+                    {chunk.symbolDescription && (
+                      <Typography level="body-xs" color="success" sx={{ mt: 0.5, fontStyle: 'italic' }}>
+                        {chunk.symbolDescription}
+                      </Typography>
+                    )}
+                  </Box>
+                  <Button
+                    variant="outlined"
+                    size="sm"
+                    onClick={() => {
+                      const filename = chunk.secondaryImageUrl.split('/').pop();
+                      const downloadUrl = `${chunk.secondaryImageUrl}/download`;
+                      const link = document.createElement('a');
+                      link.href = downloadUrl;
+                      link.download = filename;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }}
+                    sx={{ fontWeight: 'normal' }}
+                    title={`Download: ${chunk.secondaryImageUrl.split('/').pop()}`}
+                  >
+                    Download
+                  </Button>
+                </Box>
+                <AspectRatio ratio="1">
+                  <img
+                    src={chunk.secondaryImageUrl}
+                    alt={`Symbol: ${chunk.symbolDescription || 'object'}`}
+                    style={{
+                      objectFit: 'contain',
+                      borderRadius: '8px',
+                    }}
+                    onLoad={() => console.log('Secondary image loaded successfully')}
+                    onError={(e) => {
+                      console.error('Secondary image failed to load:', e);
+                      console.log('Secondary Image URL:', chunk.secondaryImageUrl);
+                    }}
+                  />
+                </AspectRatio>
+                <Typography level="body-xs" color="neutral" sx={{ mt: 1, fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                  {chunk.secondaryImageUrl.split('/').pop()}
+                </Typography>
+              </Box>
+            )}
           </Box>
         </Box>
       )}

@@ -1,87 +1,19 @@
 const OpenAI = require('openai');
 const logger = require('../utils/logger');
+const ClaudeService = require('./claudeService');
 
 class OpenAIService {
   constructor() {
     this.openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     });
+    this.claudeService = new ClaudeService();
   }
 
   async chunkScript(script) {
-    const startTime = Date.now();
-    
-    try {
-      const prompt = `
-        Please divide the following script into meaningful chunks of exactly 5 seconds each. 
-        Each chunk should respect the context and natural flow of the script.
-        Target approximately 15-20 words per chunk (assuming normal speaking pace of ~3-4 words per second).
-        Return the result as a JSON array where each chunk has:
-        - content: the text content
-        - startTime: estimated start time in seconds
-        - endTime: estimated end time in seconds (should be startTime + 5)
-        - topic: a brief description of what this chunk is about (for image generation)
-
-        Script:
-        ${script}
-
-        Please ensure the chunks flow naturally and don't break mid-sentence or mid-thought.
-        Each chunk should be exactly 5 seconds long.
-      `;
-
-      logger.info('OPENAI', 'Starting script chunking request', {
-        model: 'gpt-4',
-        scriptLength: script.length,
-        operation: 'chunk_script'
-      });
-
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4",
-        messages: [
-          {
-            role: "system",
-            content: "You are a script chunking expert. Always return valid JSON format."
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        temperature: 0.3,
-      });
-
-      const duration = Date.now() - startTime;
-      logger.logOpenAI('chunk_script', 'gpt-4', prompt, response, duration);
-
-      const content = response.choices[0].message.content;
-      
-      // Try to parse JSON from the response
-      let chunks;
-      try {
-        chunks = JSON.parse(content);
-      } catch (parseError) {
-        // If direct parsing fails, try to extract JSON from markdown code blocks
-        const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-        if (jsonMatch) {
-          chunks = JSON.parse(jsonMatch[1]);
-        } else {
-          throw new Error('Could not parse JSON from OpenAI response');
-        }
-      }
-
-      // Add unique IDs to chunks
-      chunks = chunks.map((chunk, index) => ({
-        ...chunk,
-        id: `chunk_${Date.now()}_${index}`
-      }));
-
-      logger.info('OPENAI', `Script chunked successfully into ${chunks.length} chunks`);
-      return chunks;
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      logger.logOpenAI('chunk_script', 'gpt-4', null, null, duration, error);
-      throw new Error('Failed to chunk script: ' + error.message);
-    }
+    // Use Claude Sonnet for script chunking
+    logger.info('OPENAI', 'Delegating script chunking to Claude Sonnet');
+    return await this.claudeService.chunkScript(script);
   }
 
   async regenerateChunk(originalChunk, context = '') {
@@ -121,28 +53,31 @@ class OpenAIService {
 
   async analyzeSceneDescription(chunkContent) {
     const startTime = Date.now();
-    
+
     try {
       const prompt = `
-        Analyze this script content and provide a SIMPLE scene description for pictogram illustration:
+Analyze this script and create a visual scene description for a pictogram illustration.
 
-        Script content: "${chunkContent}"
+Script: "${chunkContent}"
 
-        Create a simple, clear description that includes:
-        - Main characters and their basic emotions
-        - Key action or situation
-        - Simple body language
+INSTRUCTIONS:
+1. If the script mentions specific people/characters, describe them with their emotion/action
+2. If the script is abstract/narrative (no specific people), create a representative character that embodies the concept
+3. Always output in format: "CHARACTER: emotion/action"
 
-        Keep it SHORT and SIMPLE - suitable for pictogram-style illustration.
+Output format examples:
+- "Woman: reaching toward man, frustrated. Man: turning away"
+- "Person: head in hands, stressed"
+- "Person: thinking deeply, contemplative"
+- "Person: looking at phone, distracted"
+- "Person: sitting quietly, peaceful"
+- "Person: working at desk, focused"
 
-        Example outputs:
-        - "Woman reaching toward man, frustrated, he turns away"
-        - "Person stressed, head in hands"
-        - "Two people arguing, pointing fingers"
-        - "Person celebrating, arms raised, happy"
-
-        Provide only the simple scene description, no additional text.
-      `;
+IMPORTANT: 
+- Always create a character even if the script doesn't explicitly mention one
+- The character should represent the main idea or feeling of the script
+- Keep it simple and visual
+- Output ONLY the character description, no extra text`;
 
       logger.info('OPENAI', 'Starting scene analysis', {
         model: 'gpt-4',
@@ -155,7 +90,7 @@ class OpenAIService {
         messages: [
           {
             role: "system",
-            content: "You are an expert at analyzing text content and creating vivid scene descriptions for visual artists. Provide clear, concise descriptions that capture emotions, actions, and visual elements."
+            content: "You are an expert at analyzing text content and creating visual scene descriptions for pictogram illustrations. You always create a character representation, even for abstract concepts. Be creative and visual."
           },
           {
             role: "user",
@@ -170,7 +105,7 @@ class OpenAIService {
       logger.logOpenAI('analyze_scene', 'gpt-4', prompt, response, duration);
 
       const sceneDescription = response.choices[0].message.content.trim();
-      
+
       logger.info('OPENAI', `Scene analysis completed: "${sceneDescription}"`);
       return sceneDescription;
     } catch (error) {
@@ -180,10 +115,67 @@ class OpenAIService {
     }
   }
 
+  async analyzeSymbolsAndObjects(chunkContent) {
+    const startTime = Date.now();
+
+    try {
+      const prompt = `
+      Analyze this script and identify the most important SYMBOL, OBJECT, or CONCEPT that represents the core idea.
+
+Script: "${chunkContent}"
+
+Output format examples:
+- "Brain with gears (representing thinking/processing)"
+- "Light bulb (representing ideas/creativity)"
+- "Clock (representing time/urgency)"
+- "Book (representing knowledge/learning)"
+- "Heart (representing emotion/love)"
+- "Question mark (representing curiosity/confusion)"
+- "Target with arrow (representing goals/achievement)"
+- "Puzzle pieces (representing problem-solving)"
+
+Output ONLY ONE symbol/object with a brief explanation in parentheses. Keep it simple and iconic.`;
+
+      logger.info('OPENAI', 'Starting symbol/object analysis', {
+        model: 'gpt-4',
+        contentLength: chunkContent.length,
+        operation: 'analyze_symbols'
+      });
+
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert at identifying symbolic representations and visual metaphors. Extract the most meaningful symbol or object that represents the core concept of the text."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 100
+      });
+
+      const duration = Date.now() - startTime;
+      logger.logOpenAI('analyze_symbols', 'gpt-4', prompt, response, duration);
+
+      const symbolDescription = response.choices[0].message.content.trim();
+
+      logger.info('OPENAI', `Symbol analysis completed: "${symbolDescription}"`);
+      return symbolDescription;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      logger.logOpenAI('analyze_symbols', 'gpt-4', null, null, duration, error);
+      throw new Error('Failed to analyze symbols: ' + error.message);
+    }
+  }
+
   async generateImage(chunkContent, color = 'white', quality = 'high', style = 'infographic') {
     const startTime = Date.now();
     const chunkId = `chunk_${Date.now()}`;
-    
+
     try {
       logger.info('IMAGE_GEN', `Starting image generation`, {
         chunkId,
@@ -193,7 +185,7 @@ class OpenAIService {
         contentLength: chunkContent.length,
         contentPreview: chunkContent.substring(0, 50) + '...'
       });
-      
+
       // First, get scene analysis from ChatGPT for infographic style
       let sceneDescription = '';
       if (style === 'infographic') {
@@ -201,7 +193,7 @@ class OpenAIService {
         sceneDescription = await this.analyzeSceneDescription(chunkContent);
         logger.info('IMAGE_GEN', `Scene analysis result: "${sceneDescription}"`);
       }
-      
+
       // Define style-specific prompts
       const stylePrompts = {
         infographic: `Create a pictogram-style illustration based on this analyzed scene: "${sceneDescription}"
@@ -259,7 +251,7 @@ Style requirements:
         size: '1024x1024',
         operation: 'generate_image'
       });
-      
+
       console.log(prompt)
       const response = await this.openai.images.generate({
         model: "gpt-image-1",
@@ -275,27 +267,27 @@ Style requirements:
       // GPT-Image-1 returns base64 data, save as PNG file on server
       const base64Data = response.data[0].b64_json;
       console.log('Image generated successfully, base64 length:', base64Data?.length || 'undefined');
-      
+
       if (!base64Data) {
         console.error('No base64 data received from GPT-Image-1');
         throw new Error('No image data received from GPT-Image-1');
       }
-      
+
       // Save base64 as PNG file
       const fs = require('fs');
       const path = require('path');
       const { v4: uuidv4 } = require('uuid');
-      
+
       // Create uploads directory if it doesn't exist
       const uploadsDir = path.join(__dirname, '../uploads');
       if (!fs.existsSync(uploadsDir)) {
         fs.mkdirSync(uploadsDir, { recursive: true });
       }
-      
+
       // Extract last 2 words from chunk content for filename
       const words = chunkContent.trim().split(/\s+/).filter(word => word.length > 0);
       let lastTwoWords = '';
-      
+
       if (words.length >= 2) {
         lastTwoWords = words.slice(-2).join('_');
       } else if (words.length === 1) {
@@ -303,28 +295,28 @@ Style requirements:
       } else {
         lastTwoWords = 'content';
       }
-      
+
       // Clean filename and ensure it's not too long
       lastTwoWords = lastTwoWords
         .replace(/[^a-zA-Z0-9_]/g, '')
         .toLowerCase()
         .substring(0, 20); // Limit length
-      
+
       const shortId = uuidv4().substring(0, 8);
-      
+
       // Generate descriptive filename
       const filename = `image_${shortId}_${lastTwoWords || 'chunk'}.png`;
       const filepath = path.join(uploadsDir, filename);
-      
+
       // Convert base64 to buffer and save as PNG
       const imageBuffer = Buffer.from(base64Data, 'base64');
       fs.writeFileSync(filepath, imageBuffer);
-      
+
       const totalDuration = Date.now() - startTime;
       const imageUrl = `/api/images/${filename}`;
-      
+
       logger.logImageGeneration(chunkId, color, quality, style, imageUrl, totalDuration);
-      
+
       return imageUrl;
     } catch (error) {
       const totalDuration = Date.now() - startTime;
@@ -335,13 +327,13 @@ Style requirements:
 
   async generateYouTubeTitle(script, options = {}) {
     const startTime = Date.now();
-    
+
     try {
       const { style = 'engaging', maxLength = 60 } = options;
-      
+
       // Get first 500 characters of script for context
       const scriptPreview = script.substring(0, 500);
-      
+
       const stylePrompts = {
         engaging: 'Create an engaging, clickable YouTube title that captures attention and encourages clicks',
         educational: 'Create an educational, informative YouTube title that clearly describes what viewers will learn',
@@ -394,7 +386,7 @@ Style requirements:
       logger.logOpenAI('generate_youtube_title', 'gpt-4', prompt, response, duration);
 
       const title = response.choices[0].message.content.trim();
-      
+
       logger.info('OPENAI', `YouTube title generated successfully: "${title}"`);
       return title;
     } catch (error) {
@@ -406,15 +398,15 @@ Style requirements:
 
   async generateYouTubeDescription(script, title, options = {}) {
     const startTime = Date.now();
-    
+
     try {
-      const { 
-        includeTimestamps = true, 
-        includeHashtags = true, 
+      const {
+        includeTimestamps = true,
+        includeHashtags = true,
         maxLength = 2000,
         callToAction = 'Subscribe for more content like this!'
       } = options;
-      
+
       const prompt = `
         Create a compelling YouTube video description for a video with this title: "${title}"
         
@@ -473,7 +465,7 @@ Style requirements:
       logger.logOpenAI('generate_youtube_description', 'gpt-4', prompt, response, duration);
 
       const description = response.choices[0].message.content.trim();
-      
+
       logger.info('OPENAI', `YouTube description generated successfully (${description.length} characters)`);
       return description;
     } catch (error) {

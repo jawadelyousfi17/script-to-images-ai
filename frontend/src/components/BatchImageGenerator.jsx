@@ -20,7 +20,7 @@ const BatchImageGenerator = ({ script, onBatchComplete }) => {
   const [batchColor, setBatchColor] = useState('white');
   const [batchQuality, setBatchQuality] = useState('high');
   const [batchStyle, setBatchStyle] = useState('infographic');
-  const [batchProvider, setBatchProvider] = useState('openai');
+  const [batchProvider, setBatchProvider] = useState('nanobanana');
   const [providers, setProviders] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [batchStatus, setBatchStatus] = useState(null);
@@ -34,9 +34,12 @@ const BatchImageGenerator = ({ script, onBatchComplete }) => {
         const providerData = await scriptAPI.getProviders();
         setProviders(providerData);
         
-        // Set default provider to first available
+        // Set default provider to nanobanana if available, otherwise use first available
         if (providerData.available.length > 0) {
-          setBatchProvider(providerData.default || providerData.available[0]);
+          const preferredProvider = providerData.available.includes('nanobanana') 
+            ? 'nanobanana' 
+            : (providerData.default || providerData.available[0]);
+          setBatchProvider(preferredProvider);
         }
       } catch (err) {
         console.error('Error loading providers:', err);

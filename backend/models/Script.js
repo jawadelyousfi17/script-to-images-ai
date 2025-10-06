@@ -21,7 +21,23 @@ const chunkSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  secondaryImageUrl: {
+    type: String,
+    default: null
+  },
+  sceneDescription: {
+    type: String,
+    default: null
+  },
+  symbolDescription: {
+    type: String,
+    default: null
+  },
   topic: {
+    type: String,
+    default: null
+  },
+  imageProvider: {
     type: String,
     default: null
   }

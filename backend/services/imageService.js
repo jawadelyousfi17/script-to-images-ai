@@ -56,24 +56,65 @@ class ImageService {
       // For NanoBanana provider with infographic style, use OpenAI for scene analysis first
       if (provider === 'nanobanana' && style === 'infographic') {
         console.log(`🎯 [NANOBANANA PATH] Taking NanoBanana + infographic path!`);
-        logger.info('IMAGE_SERVICE', 'Using OpenAI for scene analysis before NanoBanana generation');
+        logger.info('IMAGE_SERVICE', 'Using OpenAI for scene and symbol analysis before NanoBanana generation');
+        
+        console.log('\n' + '='.repeat(100));
+        console.log('🤖 [OPENAI SCENE ANALYSIS] Analyzing chunk content:');
+        console.log('📝 Chunk Content:', chunkContent);
+        console.log('='.repeat(100));
+        
+        // Generate scene description for main image
         const sceneDescription = await this.openaiService.analyzeSceneDescription(chunkContent);
+        
+        console.log('\n' + '='.repeat(100));
+        console.log('✨ [OPENAI SCENE DESCRIPTION OUTPUT]:');
+        console.log('🎬 Scene Description:', sceneDescription);
+        console.log('📏 Length:', sceneDescription.length, 'characters');
+        console.log('='.repeat(100) + '\n');
+        
         logger.info('IMAGE_SERVICE', `Scene analysis result: "${sceneDescription}"`);
         
-        console.log(`🎯 [NANOBANANA PATH] About to call NanoBanana generateImageWithScene`);
-        // Pass the scene description to NanoBanana
+        // Generate symbol description for secondary image
+        console.log('\n' + '='.repeat(100));
+        console.log('🔣 [OPENAI SYMBOL ANALYSIS] Analyzing chunk content for symbols:');
+        console.log('📝 Chunk Content:', chunkContent);
+        console.log('='.repeat(100));
+        
+        const symbolDescription = await this.openaiService.analyzeSymbolsAndObjects(chunkContent);
+        
+        console.log('\n' + '='.repeat(100));
+        console.log('✨ [OPENAI SYMBOL DESCRIPTION OUTPUT]:');
+        console.log('🔣 Symbol Description:', symbolDescription);
+        console.log('📏 Length:', symbolDescription.length, 'characters');
+        console.log('='.repeat(100) + '\n');
+        
+        logger.info('IMAGE_SERVICE', `Symbol analysis result: "${symbolDescription}"`);
+        
+        console.log(`🎯 [NANOBANANA PATH] About to call NanoBanana for both images`);
         const service = this.providers[provider];
-        const imageUrl = await service.generateImageWithScene(sceneDescription, color, quality, style);
+        
+        // Generate main image (scene with characters)
+        const mainImageUrl = await service.generateImageWithScene(sceneDescription, color, quality, style);
+        
+        // Generate secondary image (symbol/object)
+        const secondaryImageUrl = await service.generateSymbolImage(symbolDescription, color, quality, style);
         
         const duration = Date.now() - startTime;
-        logger.info('IMAGE_SERVICE', `Image generated successfully with ${provider} using scene analysis`, {
+        logger.info('IMAGE_SERVICE', `Both images generated successfully with ${provider}`, {
           provider,
-          imageUrl,
+          mainImageUrl,
+          secondaryImageUrl,
           duration,
-          sceneDescription
+          sceneDescription,
+          symbolDescription
         });
 
-        return imageUrl;
+        return {
+          mainImageUrl,
+          secondaryImageUrl,
+          sceneDescription,
+          symbolDescription
+        };
       } else {
         console.log(`🔄 [STANDARD PATH] Taking standard path for provider: ${provider}, style: ${style}`);
         // Use the provider's standard generation method
