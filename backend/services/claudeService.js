@@ -19,14 +19,17 @@ Divide the following script into chunks of 5-8 seconds each. Each chunk should b
 CRITICAL REQUIREMENTS:
 - Each chunk must be 5-8 seconds long (assuming normal speaking pace of ~3 words per second)
 - This means approximately 15-24 words per chunk
-- Understand the CONTEXT and meaning of the script
+- **USE ONLY THE EXACT TEXT FROM THE SCRIPT - DO NOT ADD, REMOVE, OR MODIFY ANY WORDS**
+- **DO NOT PARAPHRASE OR REWRITE - COPY THE EXACT WORDS FROM THE ORIGINAL SCRIPT**
 - Don't break sentences or thoughts in unnatural places
 - Group related ideas together even if it means slightly adjusting the duration
 - Each chunk should be meaningful enough to generate a visual representation
 - Respect natural pauses, punctuation, and narrative flow
+- **EVERY WORD FROM THE ORIGINAL SCRIPT MUST APPEAR IN EXACTLY ONE CHUNK**
+- **NO WORDS SHOULD BE SKIPPED OR ADDED**
 
 Return a JSON array where each chunk has:
-- content: the text content (complete phrase/sentence)
+- content: the EXACT text from the script (complete phrase/sentence) - NO MODIFICATIONS
 - startTime: start time in seconds
 - endTime: end time in seconds (should be startTime + 5 to 8 seconds)
 - topic: a brief description of what this chunk is about (for image generation)
@@ -34,10 +37,11 @@ Return a JSON array where each chunk has:
 Script to chunk:
 ${script}
 
-IMPORTANT: 
-- Analyze the full context and meaning of the script
-- Create chunks that tell a coherent story
-- Each chunk should be 5-8 seconds when spoken at normal pace
+CRITICAL RULES: 
+- Use ONLY the exact words from the script above
+- Do NOT add your own words or paraphrase
+- Do NOT skip any words from the original script
+- Maintain the original word order
 - Return ONLY valid JSON array, no markdown formatting or extra text`;
 
       logger.info('CLAUDE', 'Starting script chunking request', {
